@@ -1,21 +1,5 @@
 import React from 'react';
-
-const SetLogger = ({totalSets}) => {
-  const sets = Array.from ({length: totalSets}, (_, i) => i + 1);
-
-  return (
-    <div className="flex space-x-3">
-      {sets.map (set => (
-        <div
-          key={set}
-          className="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center text-lg font-semibold cursor-pointer hover:bg-cyan-500"
-        >
-          {/* We can add logic later to show a checkmark */}
-        </div>
-      ))}
-    </div>
-  );
-};
+import SetLogger from './SetLogger'; // Import the new reusable component
 
 const ExerciseDisplay = ({exercise}) => {
   return (
