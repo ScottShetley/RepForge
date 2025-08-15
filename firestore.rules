@@ -1,0 +1,41 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------------
+    [cite_start]// Security Best Practice: Deny all reads and writes by default. [cite: 326]
+    [cite_start]// Access to specific collections will be explicitly granted below this block. [cite: 327]
+    // -------------------------------------------------------------------------
+    match /{document=**} {
+      [cite_start]allow read, write: if false; [cite: 328]
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection: users
+    // Rules: Allow users to create, read, and update their own profile document.
+    // -------------------------------------------------------------------------
+    match /users/{userId} {
+      allow read, update: if request.auth.uid == userId;
+      allow create: if request.auth.uid == userId;
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection: exercises (Master Library)
+    // Rules: Allow any authenticated user to read, but nobody can write.
+    // -------------------------------------------------------------------------
+    match /exercises/{exercise} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection: workoutHistory
+    // Rules: Allow users to create, read, and update their own workout logs.
+    // -------------------------------------------------------------------------
+    match /workoutHistory/{workout} {
+      allow read, update: if request.auth.uid == resource.data.userId;
+      allow create: if request.auth.uid == request.resource.data.userId;
+    }
+  }
+}
