@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import SetLogger from './SetLogger';
 import { updateIncrement } from '../../services/firebase';
 
-// NEW: Replaced the GearIcon with a PencilIcon
 const PencilIcon = () => (
+  // SVG code is unchanged
   <svg 
     xmlns="http://www.w3.org/2000/svg" 
     viewBox="0 0 20 20" 
@@ -16,8 +16,9 @@ const PencilIcon = () => (
 );
 
 
-const ExerciseDisplay = ({ exercise, onSetToggle }) => {
+const ExerciseDisplay = ({ exercise, onSetToggle, onSwap }) => { // Add onSwap prop
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // state and handleSaveIncrement logic is unchanged
   const [newIncrement, setNewIncrement] = useState(exercise.increment);
 
   const handleSaveIncrement = async () => {
@@ -29,7 +30,7 @@ const ExerciseDisplay = ({ exercise, onSetToggle }) => {
     try {
       await updateIncrement(exercise.progressId, incrementValue);
       setIsModalOpen(false); 
-      window.location.reload(); // Simple solution to refresh state post-update
+      window.location.reload();
     } catch (error) {
       console.error("Failed to update increment:", error);
       alert("Could not save the new increment.");
@@ -43,19 +44,29 @@ const ExerciseDisplay = ({ exercise, onSetToggle }) => {
           <div className="flex items-center space-x-4">
             <div>
               <h3 className="text-2xl font-bold text-white">{exercise.name}</h3>
-              <p className="font-semibold text-gray-300">
-                {exercise.sets}x{exercise.reps} &bull; {exercise.weight} lbs (+{exercise.increment} lbs)
-              </p>
+              {/* Conditionally render progression info */}
+              {exercise.increment && (
+                <p className="font-semibold text-gray-300">
+                  {exercise.sets}x{exercise.reps} &bull; {exercise.weight} lbs (+{exercise.increment} lbs)
+                </p>
+              )}
             </div>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="text-gray-400 hover:text-white"
-              aria-label="Edit weight increment"
-            >
-              <PencilIcon />
-            </button>
+            {/* Conditionally render edit button */}
+            {exercise.increment && (
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="text-gray-400 hover:text-white"
+                aria-label="Edit weight increment"
+              >
+                <PencilIcon />
+              </button>
+            )}
           </div>
-          <button className="rounded-lg bg-gray-600 py-2 px-4 text-sm font-bold text-white hover:bg-gray-500">
+          {/* Wire up the onSwap function */}
+          <button 
+            onClick={onSwap}
+            className="rounded-lg bg-gray-600 py-2 px-4 text-sm font-bold text-white hover:bg-gray-500"
+          >
             Swap
           </button>
         </div>
@@ -66,6 +77,7 @@ const ExerciseDisplay = ({ exercise, onSetToggle }) => {
         />
       </div>
 
+      {/* The increment edit modal is unchanged */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
           <div className="w-full max-w-sm rounded-lg bg-gray-800 p-6 shadow-xl">

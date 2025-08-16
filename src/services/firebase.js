@@ -11,11 +11,11 @@ import {
   writeBatch,
   doc,
   updateDoc,
-  orderBy, // Import orderBy
-  limit // Import limit
+  orderBy,
+  limit
 } from "firebase/firestore";
 
-// Your web app's Firebase configuration, read from environment variables
+// Your web app's Firebase configuration... (rest of the config is unchanged)
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -25,20 +25,37 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-
-// Initialize and export Firebase services
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// --- WORKOUT SESSION FUNCTIONS ---
+// --- EXERCISE LIBRARY FUNCTIONS ---
 
 /**
- * Saves a completed workout session to Firestore.
- * @param {string} userId - The ID of the user.
- * @param {object} workoutData - The workout data object to save.
+ * NEW: Fetches all exercises of a specific category for the swap modal.
+ * @param {string} category - The category of exercises to fetch.
+ * @returns {Promise<Array>} A promise that resolves to an array of exercise objects.
  */
+export const getExercisesByCategory = async (category) => {
+  try {
+    const exercisesCol = collection(db, "exercises");
+    const q = query(exercisesCol, where("category", "==", category));
+    const querySnapshot = await getDocs(q);
+
+    const exercises = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    return exercises;
+  } catch (error) {
+    console.error("Error fetching exercises by category: ", error);
+    throw new Error("Could not fetch exercises.");
+  }
+};
+
+
+// --- WORKOUT SESSION FUNCTIONS --- (saveWorkout, getWorkouts, getLastWorkout are unchanged)
 export const saveWorkout = async (userId, workoutData) => {
   try {
     const docRef = await addDoc(collection(db, "workout_sessions"), {
@@ -54,11 +71,6 @@ export const saveWorkout = async (userId, workoutData) => {
   }
 };
 
-/**
- * Fetches all workout sessions for a specific user.
- * @param {string} userId - The ID of the user whose workouts to fetch.
- * @returns {Promise<Array>} A promise that resolves to an array of workout objects.
- */
 export const getWorkouts = async (userId) => {
   try {
     const workoutsCol = collection(db, "workout_sessions");
@@ -77,11 +89,6 @@ export const getWorkouts = async (userId) => {
   }
 };
 
-/**
- * NEW: Fetches the single most recent workout session for a user.
- * @param {string} userId - The ID of the user.
- * @returns {Promise<Object|null>} A promise that resolves to the last workout object or null if none exist.
- */
 export const getLastWorkout = async (userId) => {
   try {
     const workoutsCol = collection(db, "workout_sessions");
@@ -94,7 +101,7 @@ export const getLastWorkout = async (userId) => {
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
-      return null; // No workouts found for this user
+      return null;
     }
 
     const lastWorkout = querySnapshot.docs[0].data();
@@ -107,9 +114,7 @@ export const getLastWorkout = async (userId) => {
 };
 
 
-// --- USER LIFT PROGRESSION FUNCTIONS ---
-
-// Default starting values for a new user's core lifts
+// --- USER LIFT PROGRESSION FUNCTIONS --- (defaultLifts, getUserProgress, updateUserProgress, updateIncrement are unchanged)
 const defaultLifts = [
   { exerciseId: 'squat', name: 'Squat', currentWeight: 45, increment: 5 },
   { exerciseId: 'bench-press', name: 'Bench Press', currentWeight: 45, increment: 5 },
@@ -118,18 +123,12 @@ const defaultLifts = [
   { exerciseId: 'deadlift', name: 'Deadlift', currentWeight: 95, increment: 10 },
 ];
 
-/**
- * Fetches a user's lift progression data. If it doesn't exist, it creates it.
- * @param {string} userId - The ID of the user.
- * @returns {Promise<Object>} A promise that resolves to an object mapping exerciseId to progress data.
- */
 export const getUserProgress = async (userId) => {
   const progressCol = collection(db, "user_lift_progress");
   const q = query(progressCol, where("userId", "==", userId));
   const querySnapshot = await getDocs(q);
 
   if (querySnapshot.empty) {
-    // User has no progress data, so create it
     const batch = writeBatch(db);
     const userProgress = {};
 
@@ -142,7 +141,6 @@ export const getUserProgress = async (userId) => {
     await batch.commit();
     return userProgress;
   } else {
-    // User has existing progress data, format it for use
     const userProgress = {};
     querySnapshot.docs.forEach(doc => {
       const data = doc.data();
@@ -152,11 +150,6 @@ export const getUserProgress = async (userId) => {
   }
 };
 
-/**
- * Updates the current weight for a specific lift.
- * @param {string} progressId - The document ID of the user_lift_progress entry.
- * @param {number} newWeight - The new weight to set for the lift.
- */
 export const updateUserProgress = async (progressId, newWeight) => {
   const docRef = doc(db, "user_lift_progress", progressId);
   try {
@@ -167,11 +160,6 @@ export const updateUserProgress = async (progressId, newWeight) => {
   }
 };
 
-/**
- * Updates the custom weight increment for a specific lift.
- * @param {string} progressId - The document ID of the user_lift_progress entry.
- * @param {number} newIncrement - The new increment value to set.
- */
 export const updateIncrement = async (progressId, newIncrement) => {
   const docRef = doc(db, "user_lift_progress", progressId);
   try {
@@ -181,5 +169,6 @@ export const updateIncrement = async (progressId, newIncrement) => {
     throw new Error("Could not update increment.");
   }
 };
+
 
 export default app;

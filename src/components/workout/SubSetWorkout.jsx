@@ -1,6 +1,6 @@
 import React from 'react';
 import SetLogger from './SetLogger';
-import WeightStepper from './WeightStepper'; // Import the new component
+import WeightStepper from './WeightStepper';
 
 const SubSetWorkout = ({
   exercises,
@@ -11,8 +11,9 @@ const SubSetWorkout = ({
 }) => {
   return (
     <div className="mt-8">
+      {/* CORRECTED: Title changed back to "Subset Workout" */}
       <h3 className="mb-4 text-2xl font-bold text-gray-300">
-        Accessory Work
+        Subset Workout
       </h3>
       <div className="space-y-4 rounded-lg bg-gray-700/50 p-4">
         {exercises.map ((exercise, exerciseIndex) => (
@@ -25,7 +26,6 @@ const SubSetWorkout = ({
                 </p>
               </div>
 
-              {/* Replace input with the new WeightStepper component */}
               <div className="col-span-2 flex justify-end">
                 <WeightStepper
                   value={exercise.weight}
