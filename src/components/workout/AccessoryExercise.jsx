@@ -1,24 +1,21 @@
 import React from 'react';
-import SetLogger from './SetLogger'; // Import the new reusable component
+import SetLogger from './SetLogger';
 
-/**
- * Displays a single accessory exercise with a set logger.
- * @param {object} props - The component props.
- * @param {string} props.name - The name of the exercise.
- * @param {number} props.sets - The number of sets.
- * @param {string} props.reps - The rep range for the exercise.
- */
-const AccessoryExercise = ({name, sets, reps}) => {
+const AccessoryExercise = ({exercise, onSetToggle}) => {
   return (
-    <div className="py-3 border-b border-gray-700 last:border-b-0">
-      <div className="flex justify-between items-center">
-        <p className="text-gray-300">{name}</p>
+    <div className="border-b border-gray-700 py-3 last:border-b-0">
+      <div className="flex items-center justify-between">
+        <p className="text-gray-300">{exercise.name}</p>
         <p className="text-lg font-semibold text-cyan-400">
-          {sets}x{reps}
+          {exercise.sets}x{exercise.reps}
         </p>
       </div>
       <div className="mt-3">
-        <SetLogger totalSets={sets} />
+        <SetLogger
+          totalSets={exercise.sets}
+          completedSets={exercise.completedSets}
+          onSetToggle={onSetToggle}
+        />
       </div>
     </div>
   );

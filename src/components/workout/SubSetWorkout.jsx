@@ -5,28 +5,27 @@ import AccessoryExercise from './AccessoryExercise';
  * Displays a list of subset exercises for the workout.
  * @param {object} props - The component props.
  * @param {Array<object>} props.exercises - An array of subset exercise objects.
+ * @param {Function} props.onSetToggle - The master handler function from the parent view.
  */
-const SubSetWorkout = ({exercises}) => {
+const SubSetWorkout = ({exercises, onSetToggle}) => {
   if (!exercises || exercises.length === 0) {
     return null;
   }
 
   return (
-    <div className="mt-10 bg-gray-800 rounded-lg p-4 md:p-6 shadow-lg">
-      <h3 className="text-xl font-bold text-white mb-2 border-b-2 border-cyan-500 pb-2">
-        SubSet Workout
+    <div className="mt-10 rounded-lg bg-gray-800 p-4 shadow-lg md:p-6">
+      <h3 className="mb-2 border-b-2 border-cyan-500 pb-2 text-xl font-bold text-white">
+        Subset Workout
       </h3>
-      {/* NEW: Added descriptive text about the exercises being optional */}
-      <p className="text-sm text-gray-400 italic mb-4">
-        These exercises are optional and intended to complement the main lifts. Feel free to do some or all of them.
+      <p className="italic mb-4 text-sm text-gray-400">
+        These optional exercises complement the main lifts.
       </p>
       <div className="space-y-2">
-        {exercises.map (exercise => (
+        {exercises.map ((exercise, index) => (
           <AccessoryExercise
             key={exercise.id}
-            name={exercise.name}
-            sets={exercise.sets}
-            reps={exercise.reps}
+            exercise={exercise}
+            onSetToggle={setIndex => onSetToggle (index, setIndex)}
           />
         ))}
       </div>

@@ -1,6 +1,6 @@
 import React from 'react';
-import {useNavigate} from 'react-router-dom';
-import {useAuth} from '../../context/AuthContext'; // Updated path
+import {useNavigate, NavLink} from 'react-router-dom';
+import {useAuth} from '../../context/AuthContext';
 
 const Header = () => {
   const {currentUser, logout} = useAuth ();
@@ -9,18 +9,44 @@ const Header = () => {
   const handleLogout = async () => {
     try {
       await logout ();
-      navigate ('/login'); // Redirect to login page after successful logout
+      navigate ('/login');
     } catch (error) {
       console.error ('Failed to log out', error);
-      // Optionally, display an error message to the user
     }
   };
+
+  const linkStyle =
+    'px-3 py-2 rounded-md text-sm font-medium transition-colors';
+  const activeLinkStyle = 'bg-gray-700 text-white';
+  const inactiveLinkStyle = 'text-gray-300 hover:bg-gray-700 hover:text-white';
 
   return (
     <header className="bg-gray-900 shadow-md">
       <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
-        {/* --- App Title --- */}
-        <h1 className="text-2xl font-bold text-cyan-400">RepForge</h1>
+        <div className="flex items-center space-x-8">
+          {/* --- App Title --- */}
+          <h1 className="text-2xl font-bold text-cyan-400">RepForge</h1>
+
+          {/* --- NEW: Main Navigation --- */}
+          {currentUser &&
+            <nav className="flex space-x-4">
+              <NavLink
+                to="/"
+                end // Use 'end' to prevent this from matching child routes
+                className={({isActive}) =>
+                  `${linkStyle} ${isActive ? activeLinkStyle : inactiveLinkStyle}`}
+              >
+                Dashboard
+              </NavLink>
+              <NavLink
+                to="/workout"
+                className={({isActive}) =>
+                  `${linkStyle} ${isActive ? activeLinkStyle : inactiveLinkStyle}`}
+              >
+                New Workout
+              </NavLink>
+            </nav>}
+        </div>
 
         {/* --- User Info and Logout Button --- */}
         {currentUser &&

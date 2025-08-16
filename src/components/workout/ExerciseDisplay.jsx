@@ -1,21 +1,25 @@
 import React from 'react';
-import SetLogger from './SetLogger'; // Import the new reusable component
+import SetLogger from './SetLogger';
 
-const ExerciseDisplay = ({exercise}) => {
+const ExerciseDisplay = ({exercise, onSetToggle}) => {
   return (
-    <div className="bg-gray-700 rounded-lg p-4 shadow-lg">
-      <div className="flex justify-between items-center mb-4">
+    <div className="rounded-lg bg-gray-700 p-4 shadow-lg">
+      <div className="mb-4 flex items-center justify-between">
         <div>
           <h3 className="text-2xl font-bold text-white">{exercise.name}</h3>
-          <p className="text-gray-300 font-semibold">
+          <p className="font-semibold text-gray-300">
             {exercise.sets}x{exercise.reps} &bull; {exercise.weight} lbs
           </p>
         </div>
-        <button className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg text-sm">
+        <button className="rounded-lg bg-gray-600 py-2 px-4 text-sm font-bold text-white hover:bg-gray-500">
           Swap
         </button>
       </div>
-      <SetLogger totalSets={exercise.sets} />
+      <SetLogger
+        totalSets={exercise.sets}
+        completedSets={exercise.completedSets}
+        onSetToggle={onSetToggle}
+      />
     </div>
   );
 };
