@@ -1,32 +1,49 @@
 import React from 'react';
-import AccessoryExercise from './AccessoryExercise';
+import SetLogger from './SetLogger';
+import WeightStepper from './WeightStepper'; // Import the new component
 
-/**
- * Displays a list of subset exercises for the workout.
- * @param {object} props - The component props.
- * @param {Array<object>} props.exercises - An array of subset exercise objects.
- * @param {Function} props.onSetToggle - The master handler function from the parent view.
- */
-const SubSetWorkout = ({exercises, onSetToggle}) => {
-  if (!exercises || exercises.length === 0) {
-    return null;
-  }
-
+const SubSetWorkout = ({
+  exercises,
+  onSetToggle,
+  onWeightChange,
+  onIncrement,
+  onDecrement,
+}) => {
   return (
-    <div className="mt-10 rounded-lg bg-gray-800 p-4 shadow-lg md:p-6">
-      <h3 className="mb-2 border-b-2 border-cyan-500 pb-2 text-xl font-bold text-white">
-        Subset Workout
+    <div className="mt-8">
+      <h3 className="mb-4 text-2xl font-bold text-gray-300">
+        Accessory Work
       </h3>
-      <p className="italic mb-4 text-sm text-gray-400">
-        These optional exercises complement the main lifts.
-      </p>
-      <div className="space-y-2">
-        {exercises.map ((exercise, index) => (
-          <AccessoryExercise
-            key={exercise.id}
-            exercise={exercise}
-            onSetToggle={setIndex => onSetToggle (index, setIndex)}
-          />
+      <div className="space-y-4 rounded-lg bg-gray-700/50 p-4">
+        {exercises.map ((exercise, exerciseIndex) => (
+          <div key={exercise.id}>
+            <div className="grid grid-cols-3 items-center gap-2">
+              <div className="col-span-1">
+                <p className="font-bold text-white">{exercise.name}</p>
+                <p className="text-sm text-gray-400">
+                  {exercise.sets}x{exercise.reps}
+                </p>
+              </div>
+
+              {/* Replace input with the new WeightStepper component */}
+              <div className="col-span-2 flex justify-end">
+                <WeightStepper
+                  value={exercise.weight}
+                  onIncrement={() => onIncrement (exerciseIndex)}
+                  onDecrement={() => onDecrement (exerciseIndex)}
+                  onWeightChange={value =>
+                    onWeightChange (exerciseIndex, value)}
+                />
+              </div>
+            </div>
+            <div className="mt-2">
+              <SetLogger
+                totalSets={exercise.sets}
+                completedSets={exercise.completedSets}
+                onSetToggle={setIndex => onSetToggle (exerciseIndex, setIndex)}
+              />
+            </div>
+          </div>
         ))}
       </div>
     </div>

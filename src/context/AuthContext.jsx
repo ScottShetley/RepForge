@@ -5,15 +5,19 @@ import {
   signOut,
   onAuthStateChanged,
 } from 'firebase/auth';
-// --- MODIFIED LINE ---
-import {auth} from '../services/firebase.js'; // Added .js extension
+import {auth} from '../services/firebase.js';
 
 // Create the context
 const AuthContext = React.createContext ();
 
 // Custom hook to consume the context easily
 export function useAuth () {
-  return useContext (AuthContext);
+  const context = useContext (AuthContext);
+  // NEW: Add a check to ensure the context exists.
+  if (context === undefined) {
+    throw new Error ('useAuth must be used within an AuthProvider');
+  }
+  return context;
 }
 
 // Provider component that will wrap the application

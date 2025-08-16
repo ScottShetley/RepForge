@@ -1,20 +1,23 @@
 import React, {useState, useEffect} from 'react';
 import ExerciseDisplay from './ExerciseDisplay';
-import SubSetWorkout from './SubSetWorkout'; // REVERTED IMPORT
+import SubSetWorkout from './SubSetWorkout';
 import {useAuth} from '../../context/AuthContext';
-import {saveWorkout} from '../../services/firebase';
+import {
+  saveWorkout,
+  getUserProgress,
+  updateUserProgress,
+} from '../../services/firebase';
 import {produce} from 'immer';
 
 const workoutTemplates = {
   workoutA: {
-    id: 'workout01',
+    id: 'workoutA',
     name: 'Workout A',
-    exercises: [
-      {id: 'ex01', name: 'Squat', weight: 200, sets: 5, reps: 5},
-      {id: 'ex02', name: 'Bench Press', weight: 150, sets: 5, reps: 5},
-      {id: 'ex03', name: 'Barbell Row', weight: 135, sets: 5, reps: 5},
+    coreLifts: [
+      {exerciseId: 'squat', sets: 5, reps: 5},
+      {exerciseId: 'bench-press', sets: 5, reps: 5},
+      {exerciseId: 'barbell-row', sets: 5, reps: 5},
     ],
-    // RENAMED KEY and EXPANDED LIST
     subSetWorkout: [
       {id: 'acc01', name: 'Dips', sets: 3, reps: '8-12'},
       {id: 'acc02', name: 'Tricep Pushdowns', sets: 3, reps: '10-15'},
@@ -23,14 +26,13 @@ const workoutTemplates = {
     ],
   },
   workoutB: {
-    id: 'workout02',
+    id: 'workoutB',
     name: 'Workout B',
-    exercises: [
-      {id: 'ex04', name: 'Squat', weight: 205, sets: 5, reps: 5},
-      {id: 'ex05', name: 'Overhead Press', weight: 100, sets: 5, reps: 5},
-      {id: 'ex06', name: 'Deadlift', weight: 250, sets: 1, reps: 5},
+    coreLifts: [
+      {exerciseId: 'squat', sets: 5, reps: 5},
+      {exerciseId: 'overhead-press', sets: 5, reps: 5},
+      {exerciseId: 'deadlift', sets: 1, reps: 5},
     ],
-    // RENAMED KEY and EXPANDED LIST
     subSetWorkout: [
       {id: 'acc05', name: 'Pull-ups / Chin-ups', sets: 3, reps: 'To Failure'},
       {id: 'acc06', name: 'Leg Press', sets: 3, reps: '10-15'},
@@ -40,8 +42,11 @@ const workoutTemplates = {
   },
 };
 
+const WEIGHT_INCREMENT_STEP = 5; // Use a constant for the step value
+
 const WorkoutView = () => {
   const [currentWorkoutId, setCurrentWorkoutId] = useState ('workoutA');
+  const [liftProgress, setLiftProgress] = useState (null);
   const [workoutState, setWorkoutState] = useState (null);
   const [isSaving, setIsSaving] = useState (false);
   const [saveMessage, setSaveMessage] = useState ('');
@@ -49,29 +54,91 @@ const WorkoutView = () => {
 
   useEffect (
     () => {
-      const template = workoutTemplates[currentWorkoutId];
-      const initialState = {
-        ...template,
-        exercises: template.exercises.map (ex => ({
-          ...ex,
-          completedSets: Array (ex.sets).fill (false),
-        })),
-        // UPDATED KEY
-        subSetWorkout: template.subSetWorkout.map (ex => ({
-          ...ex,
-          completedSets: Array (Number (ex.sets)).fill (false),
-        })),
-      };
-      setWorkoutState (initialState);
+      if (currentUser) {
+        const fetchProgress = async () => {
+          const progress = await getUserProgress (currentUser.uid);
+          setLiftProgress (progress);
+        };
+        fetchProgress ();
+      }
     },
-    [currentWorkoutId]
+    [currentUser]
+  );
+
+  useEffect (
+    () => {
+      if (liftProgress) {
+        const template = workoutTemplates[currentWorkoutId];
+
+        const hydratedExercises = template.coreLifts.map (lift => {
+          const progress = liftProgress[lift.exerciseId];
+          return {
+            ...lift,
+            progressId: progress.id,
+            name: progress.name,
+            weight: progress.currentWeight,
+            increment: progress.increment,
+            completedSets: Array (lift.sets).fill (false),
+          };
+        });
+
+        const accessoryExercises = template.subSetWorkout.map (ex => ({
+          ...ex,
+          weight: '',
+          completedSets: Array (Number (ex.sets) || 3).fill (false),
+        }));
+
+        setWorkoutState ({
+          id: template.id,
+          name: template.name,
+          exercises: hydratedExercises,
+          subSetWorkout: accessoryExercises,
+        });
+      }
+    },
+    [currentWorkoutId, liftProgress]
   );
 
   const handleSetToggle = (exerciseType, exerciseIndex, setIndex) => {
     setWorkoutState (
       produce (draft => {
-        const exercise = draft[exerciseType][exerciseIndex];
-        exercise.completedSets[setIndex] = !exercise.completedSets[setIndex];
+        draft[exerciseType][exerciseIndex].completedSets[setIndex] = !draft[
+          exerciseType
+        ][exerciseIndex].completedSets[setIndex];
+      })
+    );
+  };
+
+  const handleAccessoryWeightChange = (exerciseIndex, newWeight) => {
+    setWorkoutState (
+      produce (draft => {
+        draft.subSetWorkout[exerciseIndex].weight = newWeight;
+      })
+    );
+  };
+
+  // NEW: Handler for incrementing accessory weight
+  const handleIncrementAccessoryWeight = exerciseIndex => {
+    setWorkoutState (
+      produce (draft => {
+        const currentWeight =
+          parseFloat (draft.subSetWorkout[exerciseIndex].weight) || 0;
+        draft.subSetWorkout[exerciseIndex].weight =
+          currentWeight + WEIGHT_INCREMENT_STEP;
+      })
+    );
+  };
+
+  // NEW: Handler for decrementing accessory weight
+  const handleDecrementAccessoryWeight = exerciseIndex => {
+    setWorkoutState (
+      produce (draft => {
+        const currentWeight =
+          parseFloat (draft.subSetWorkout[exerciseIndex].weight) || 0;
+        const newWeight = currentWeight - WEIGHT_INCREMENT_STEP;
+        draft.subSetWorkout[exerciseIndex].weight = newWeight > 0
+          ? newWeight
+          : 0; // Prevent negative weights
       })
     );
   };
@@ -83,15 +150,44 @@ const WorkoutView = () => {
     }
     setIsSaving (true);
     setSaveMessage ('');
+
     try {
       await saveWorkout (currentUser.uid, workoutState);
-      setSaveMessage ('Workout saved successfully!');
+      setSaveMessage ('Workout saved successfully! Applying progression...');
+
+      const updates = [];
+      workoutState.exercises.forEach (exercise => {
+        const wasSuccessful = exercise.completedSets.every (
+          set => set === true
+        );
+        if (wasSuccessful) {
+          const newWeight = exercise.weight + exercise.increment;
+          updates.push (updateUserProgress (exercise.progressId, newWeight));
+        }
+      });
+
+      await Promise.all (updates);
+
+      setLiftProgress (
+        produce (draft => {
+          workoutState.exercises.forEach (exercise => {
+            const wasSuccessful = exercise.completedSets.every (
+              set => set === true
+            );
+            if (wasSuccessful) {
+              draft[exercise.exerciseId].currentWeight += exercise.increment;
+            }
+          });
+        })
+      );
+
+      setSaveMessage ('Progression applied for your next session!');
     } catch (error) {
-      setSaveMessage ('Error: Could not save workout.');
-      console.error ('Error saving workout:', error);
+      setSaveMessage ('Error: Could not save workout or apply progression.');
+      console.error ('Error during save/progression:', error);
     } finally {
       setIsSaving (false);
-      setTimeout (() => setSaveMessage (''), 3000);
+      setTimeout (() => setSaveMessage (''), 4000);
     }
   };
 
@@ -102,7 +198,9 @@ const WorkoutView = () => {
   };
 
   if (!workoutState) {
-    return <div>Loading workout...</div>;
+    return (
+      <div className="p-6 text-white text-center">Loading workout data...</div>
+    );
   }
 
   return (
@@ -124,13 +222,19 @@ const WorkoutView = () => {
 
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-3xl font-bold text-white">{workoutState.name}</h2>
-        <span className="text-lg text-gray-400">August 16, 2025</span>
+        <span className="text-lg text-gray-400">
+          {new Date ().toLocaleDateString ('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+          })}
+        </span>
       </div>
 
       <div className="space-y-6">
         {workoutState.exercises.map ((exercise, index) => (
           <ExerciseDisplay
-            key={exercise.id}
+            key={exercise.progressId}
             exercise={exercise}
             onSetToggle={setIndex =>
               handleSetToggle ('exercises', index, setIndex)}
@@ -138,11 +242,14 @@ const WorkoutView = () => {
         ))}
       </div>
 
-      {/* UPDATED COMPONENT CALL AND PROPS */}
+      {/* NEW: Pass the increment and decrement handlers */}
       <SubSetWorkout
         exercises={workoutState.subSetWorkout}
         onSetToggle={(exerciseIndex, setIndex) =>
           handleSetToggle ('subSetWorkout', exerciseIndex, setIndex)}
+        onWeightChange={handleAccessoryWeightChange}
+        onIncrement={handleIncrementAccessoryWeight}
+        onDecrement={handleDecrementAccessoryWeight}
       />
 
       <div className="mt-8 border-t border-gray-700 pt-6 text-center">
