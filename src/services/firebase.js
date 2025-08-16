@@ -10,7 +10,9 @@ import {
   getDocs,
   writeBatch,
   doc,
-  updateDoc
+  updateDoc,
+  orderBy, // Import orderBy
+  limit // Import limit
 } from "firebase/firestore";
 
 // Your web app's Firebase configuration, read from environment variables
@@ -72,6 +74,35 @@ export const getWorkouts = async (userId) => {
   } catch (error) {
     console.error("Error fetching workouts: ", error);
     throw new Error("Could not fetch workout history.");
+  }
+};
+
+/**
+ * NEW: Fetches the single most recent workout session for a user.
+ * @param {string} userId - The ID of the user.
+ * @returns {Promise<Object|null>} A promise that resolves to the last workout object or null if none exist.
+ */
+export const getLastWorkout = async (userId) => {
+  try {
+    const workoutsCol = collection(db, "workout_sessions");
+    const q = query(
+      workoutsCol,
+      where("userId", "==", userId),
+      orderBy("createdAt", "desc"),
+      limit(1)
+    );
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      return null; // No workouts found for this user
+    }
+
+    const lastWorkout = querySnapshot.docs[0].data();
+    return lastWorkout;
+
+  } catch (error) {
+    console.error("Error fetching last workout: ", error);
+    throw new Error("Could not fetch last workout.");
   }
 };
 

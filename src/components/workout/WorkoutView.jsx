@@ -6,6 +6,7 @@ import {
   saveWorkout,
   getUserProgress,
   updateUserProgress,
+  getLastWorkout, // Import the new function
 } from '../../services/firebase';
 import {produce} from 'immer';
 
@@ -42,32 +43,45 @@ const workoutTemplates = {
   },
 };
 
-const WEIGHT_INCREMENT_STEP = 5; // Use a constant for the step value
+const WEIGHT_INCREMENT_STEP = 5;
 
 const WorkoutView = () => {
-  const [currentWorkoutId, setCurrentWorkoutId] = useState ('workoutA');
+  // NEW: Default to null to wait for logic to run
+  const [currentWorkoutId, setCurrentWorkoutId] = useState (null);
   const [liftProgress, setLiftProgress] = useState (null);
   const [workoutState, setWorkoutState] = useState (null);
   const [isSaving, setIsSaving] = useState (false);
   const [saveMessage, setSaveMessage] = useState ('');
   const {currentUser} = useAuth ();
 
+  // This effect now handles initial data loading and workout suggestion
   useEffect (
     () => {
-      if (currentUser) {
-        const fetchProgress = async () => {
+      if (currentUser && !liftProgress) {
+        // Only run once on load
+        const fetchData = async () => {
+          // 1. Determine the next workout
+          const lastWorkout = await getLastWorkout (currentUser.uid);
+          const nextWorkoutId = !lastWorkout || lastWorkout.id === 'workoutB'
+            ? 'workoutA'
+            : 'workoutB';
+
+          setCurrentWorkoutId (nextWorkoutId);
+
+          // 2. Fetch the user's lift progression
           const progress = await getUserProgress (currentUser.uid);
           setLiftProgress (progress);
         };
-        fetchProgress ();
+        fetchData ();
       }
     },
-    [currentUser]
+    [currentUser, liftProgress]
   );
 
+  // This effect builds the workout state when the ID or progress changes
   useEffect (
     () => {
-      if (liftProgress) {
+      if (currentWorkoutId && liftProgress) {
         const template = workoutTemplates[currentWorkoutId];
 
         const hydratedExercises = template.coreLifts.map (lift => {
@@ -117,7 +131,6 @@ const WorkoutView = () => {
     );
   };
 
-  // NEW: Handler for incrementing accessory weight
   const handleIncrementAccessoryWeight = exerciseIndex => {
     setWorkoutState (
       produce (draft => {
@@ -129,7 +142,6 @@ const WorkoutView = () => {
     );
   };
 
-  // NEW: Handler for decrementing accessory weight
   const handleDecrementAccessoryWeight = exerciseIndex => {
     setWorkoutState (
       produce (draft => {
@@ -138,7 +150,7 @@ const WorkoutView = () => {
         const newWeight = currentWeight - WEIGHT_INCREMENT_STEP;
         draft.subSetWorkout[exerciseIndex].weight = newWeight > 0
           ? newWeight
-          : 0; // Prevent negative weights
+          : 0;
       })
     );
   };
@@ -197,9 +209,12 @@ const WorkoutView = () => {
       : 'bg-gray-600 text-gray-300 hover:bg-gray-500';
   };
 
+  // NEW: Show a loading state until the initial workout is determined
   if (!workoutState) {
     return (
-      <div className="p-6 text-white text-center">Loading workout data...</div>
+      <div className="p-6 text-white text-center">
+        Determining next workout...
+      </div>
     );
   }
 
@@ -242,7 +257,6 @@ const WorkoutView = () => {
         ))}
       </div>
 
-      {/* NEW: Pass the increment and decrement handlers */}
       <SubSetWorkout
         exercises={workoutState.subSetWorkout}
         onSetToggle={(exerciseIndex, setIndex) =>
