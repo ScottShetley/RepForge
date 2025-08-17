@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import ExerciseDisplay from './ExerciseDisplay';
 import SubSetWorkout from './SubSetWorkout';
 import ExerciseSwapModal from './ExerciseSwapModal';
@@ -6,12 +7,12 @@ import { useAuth } from '../../context/AuthContext';
 import {
   saveWorkout,
   getUserProgress,
-  updateUserProgress,
+  updateUserProgressAfterWorkout,
   getLastWorkout,
 } from '../../services/firebase';
 import { produce } from 'immer';
 
-// CORRECTED: Full subset workout list is restored
+// ... (workoutTemplates object is unchanged)
 const workoutTemplates = {
   workoutA: {
     id: 'workoutA',
@@ -46,8 +47,9 @@ const workoutTemplates = {
 };
 
 const WEIGHT_INCREMENT_STEP = 5;
+const DELOAD_THRESHOLD = 3;
+const DELOAD_PERCENTAGE = 0.9;
 
-// The rest of the component is unchanged
 const WorkoutView = () => {
   const [currentWorkoutId, setCurrentWorkoutId] = useState(null); 
   const [liftProgress, setLiftProgress] = useState(null);
@@ -58,6 +60,8 @@ const WorkoutView = () => {
   
   const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
   const [exerciseToSwap, setExerciseToSwap] = useState(null);
+
+  const [isSessionComplete, setIsSessionComplete] = useState(false);
 
   useEffect(() => {
     if (currentUser && !liftProgress) {
@@ -115,7 +119,18 @@ const WorkoutView = () => {
       })
     );
   };
+  
+  // NEW: Handler to adjust the weight for a single exercise
+  const handleWeightAdjust = (exerciseIndex, weightToAdd) => {
+    setWorkoutState(
+      produce(draft => {
+        const currentWeight = draft.exercises[exerciseIndex].weight;
+        draft.exercises[exerciseIndex].weight = currentWeight + weightToAdd;
+      })
+    );
+  };
 
+  // ... other handlers are unchanged
   const handleAccessoryWeightChange = (exerciseIndex, newWeight) => {
     setWorkoutState(
       produce(draft => {
@@ -174,6 +189,7 @@ const WorkoutView = () => {
     handleCloseSwapModal();
   };
 
+
   const handleSaveWorkout = async () => {
     if (!currentUser) {
       setSaveMessage('You must be logged in to save a workout.');
@@ -184,36 +200,55 @@ const WorkoutView = () => {
 
     try {
       await saveWorkout(currentUser.uid, workoutState);
-      setSaveMessage('Workout saved successfully! Applying progression...');
+      
+      const progressionPromises = [];
+      const newLiftProgressState = { ...liftProgress };
 
-      const updates = [];
       workoutState.exercises.forEach(exercise => {
+        // This logic is now only for calculating progression after a save.
+        // It does not use the adjusted weight for its calculation, which is correct.
+        // It uses the original weight from liftProgress.
+        const progressData = liftProgress[exercise.exerciseId]; 
+        if (!progressData) return;
+
         const wasSuccessful = exercise.completedSets.every(set => set === true);
-        if (wasSuccessful && exercise.progressId) {
-          const newWeight = exercise.weight + exercise.increment;
-          updates.push(updateUserProgress(exercise.progressId, newWeight));
+        
+        if (wasSuccessful) {
+          const newWeight = progressData.currentWeight + progressData.increment;
+          const updatePayload = { currentWeight: newWeight };
+          if (progressData.failureCount > 0) {
+            updatePayload.failureCount = 0;
+          }
+          progressionPromises.push(updateUserProgressAfterWorkout(progressData.id, updatePayload));
+          newLiftProgressState[exercise.exerciseId] = { ...newLiftProgressState[exercise.exerciseId], currentWeight: newWeight, failureCount: 0 };
+        } else {
+          const currentFailures = progressData.failureCount || 0;
+          const newFailureCount = currentFailures + 1;
+
+          if (newFailureCount >= DELOAD_THRESHOLD) {
+            const deloadWeight = Math.round((progressData.currentWeight * DELOAD_PERCENTAGE) / 5) * 5;
+            const updatePayload = { currentWeight: deloadWeight, failureCount: 0 };
+            progressionPromises.push(updateUserProgressAfterWorkout(progressData.id, updatePayload));
+            newLiftProgressState[exercise.exerciseId] = { ...newLiftProgressState[exercise.exerciseId], currentWeight: deloadWeight, failureCount: 0 };
+          } else {
+            const updatePayload = { failureCount: newFailureCount };
+            progressionPromises.push(updateUserProgressAfterWorkout(progressData.id, updatePayload));
+            newLiftProgressState[exercise.exerciseId] = { ...newLiftProgressState[exercise.exerciseId], failureCount: newFailureCount };
+          }
         }
       });
       
-      await Promise.all(updates);
-      
-      setLiftProgress(produce(draft => {
-        workoutState.exercises.forEach(exercise => {
-          const wasSuccessful = exercise.completedSets.every(set => set === true);
-          if (wasSuccessful && exercise.progressId) {
-              draft[exercise.exerciseId].currentWeight += exercise.increment;
-          }
-        });
-      }));
+      await Promise.all(progressionPromises);
+      setLiftProgress(newLiftProgressState);
 
-      setSaveMessage('Progression applied for your next session!');
+      setIsSessionComplete(true);
+      setSaveMessage('Workout Saved! Your next workout will be waiting for you when you return.');
 
     } catch (error) {
       setSaveMessage('Error: Could not save workout or apply progression.');
       console.error('Error during save/progression:', error);
     } finally {
       setIsSaving(false);
-      setTimeout(() => setSaveMessage(''), 4000);
     }
   };
 
@@ -235,13 +270,15 @@ const WorkoutView = () => {
         <div className="mb-6 flex justify-center space-x-4">
           <button
             onClick={() => setCurrentWorkoutId('workoutA')}
-            className={`w-full rounded-lg px-6 py-2 font-bold transition-colors duration-200 md:w-auto ${getButtonClass('workoutA')}`}
+            disabled={isSessionComplete}
+            className={`w-full rounded-lg px-6 py-2 font-bold transition-colors duration-200 md:w-auto ${getButtonClass('workoutA')} disabled:bg-gray-500 disabled:cursor-not-allowed`}
           >
             Workout A
           </button>
           <button
             onClick={() => setCurrentWorkoutId('workoutB')}
-            className={`w-full rounded-lg px-6 py-2 font-bold transition-colors duration-200 md:w-auto ${getButtonClass('workoutB')}`}
+            disabled={isSessionComplete}
+            className={`w-full rounded-lg px-6 py-2 font-bold transition-colors duration-200 md:w-auto ${getButtonClass('workoutB')} disabled:bg-gray-500 disabled:cursor-not-allowed`}
           >
             Workout B
           </button>
@@ -262,30 +299,39 @@ const WorkoutView = () => {
             <ExerciseDisplay
               key={exercise.progressId || exercise.exerciseId}
               exercise={exercise}
-              onSetToggle={(setIndex) =>
-                handleSetToggle('exercises', index, setIndex)}
+              onSetToggle={(setIndex) => handleSetToggle('exercises', index, setIndex)}
               onSwap={() => handleOpenSwapModal(index)}
+              isComplete={isSessionComplete}
+              // MODIFIED: Pass the new handler to the component
+              onWeightAdjust={(weightToAdd) => handleWeightAdjust(index, weightToAdd)}
             />
           ))}
         </div>
         
         <SubSetWorkout
           exercises={workoutState.subSetWorkout}
-          onSetToggle={(exerciseIndex, setIndex) =>
-            handleSetToggle('subSetWorkout', exerciseIndex, setIndex)}
+          onSetToggle={(exerciseIndex, setIndex) => handleSetToggle('subSetWorkout', exerciseIndex, setIndex)}
           onWeightChange={handleAccessoryWeightChange}
           onIncrement={handleIncrementAccessoryWeight}
           onDecrement={handleDecrementAccessoryWeight}
+          isComplete={isSessionComplete}
         />
 
         <div className="mt-8 border-t border-gray-700 pt-6 text-center">
-          <button
-            onClick={handleSaveWorkout}
-            disabled={isSaving}
-            className="w-full rounded-lg bg-indigo-600 px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400 md:w-auto"
-          >
-            {isSaving ? 'Saving...' : 'Finish & Save Workout'}
-          </button>
+          {!isSessionComplete ? (
+            <button
+              onClick={handleSaveWorkout}
+              disabled={isSaving}
+              className="w-full rounded-lg bg-indigo-600 px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400 md:w-auto"
+            >
+              {isSaving ? 'Saving...' : 'Finish & Save Workout'}
+            </button>
+          ) : (
+            <Link to="/" className="w-full rounded-lg bg-green-600 px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-green-700 md:w-auto">
+              Go to Dashboard
+            </Link>
+          )}
+
           {saveMessage && (
             <p className="mt-4 text-sm text-gray-300">{saveMessage}</p>
           )}

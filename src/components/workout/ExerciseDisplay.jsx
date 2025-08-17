@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import SetLogger from './SetLogger';
-import { updateIncrement } from '../../services/firebase';
+// REMOVED: updateIncrement is no longer needed here.
 
 const PencilIcon = () => (
-  // SVG code is unchanged
   <svg 
     xmlns="http://www.w3.org/2000/svg" 
     viewBox="0 0 20 20" 
@@ -16,25 +15,22 @@ const PencilIcon = () => (
 );
 
 
-const ExerciseDisplay = ({ exercise, onSetToggle, onSwap }) => { // Add onSwap prop
+// MODIFIED: Added isComplete and onWeightAdjust props
+const ExerciseDisplay = ({ exercise, onSetToggle, onSwap, isComplete, onWeightAdjust }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  // state and handleSaveIncrement logic is unchanged
-  const [newIncrement, setNewIncrement] = useState(exercise.increment);
+  // MODIFIED: State now holds the weight to add, not the new increment
+  const [weightToAdd, setWeightToAdd] = useState('');
 
-  const handleSaveIncrement = async () => {
-    const incrementValue = parseFloat(newIncrement);
-    if (isNaN(incrementValue) || incrementValue <= 0) {
-      alert("Please enter a valid, positive number for the increment.");
+  // MODIFIED: New handler for adjusting weight
+  const handleAdjust = () => {
+    const value = parseFloat(weightToAdd);
+    if (isNaN(value) || value <= 0) {
+      alert("Please enter a valid, positive number.");
       return;
     }
-    try {
-      await updateIncrement(exercise.progressId, incrementValue);
-      setIsModalOpen(false); 
-      window.location.reload();
-    } catch (error) {
-      console.error("Failed to update increment:", error);
-      alert("Could not save the new increment.");
-    }
+    onWeightAdjust(value); // Call the function passed from WorkoutView
+    setWeightToAdd('');   // Reset input
+    setIsModalOpen(false);  // Close modal
   };
 
   return (
@@ -44,28 +40,32 @@ const ExerciseDisplay = ({ exercise, onSetToggle, onSwap }) => { // Add onSwap p
           <div className="flex items-center space-x-4">
             <div>
               <h3 className="text-2xl font-bold text-white">{exercise.name}</h3>
-              {/* Conditionally render progression info */}
-              {exercise.increment && (
+              {exercise.increment ? (
                 <p className="font-semibold text-gray-300">
-                  {exercise.sets}x{exercise.reps} &bull; {exercise.weight} lbs (+{exercise.increment} lbs)
+                  {/* MODIFIED: Simplified display */}
+                  {exercise.sets}x{exercise.reps} &bull; {exercise.weight} lbs
+                </p>
+              ) : (
+                 <p className="font-semibold text-gray-300">
+                  {exercise.sets}x{exercise.reps}
                 </p>
               )}
             </div>
-            {/* Conditionally render edit button */}
             {exercise.increment && (
               <button
                 onClick={() => setIsModalOpen(true)}
-                className="text-gray-400 hover:text-white"
-                aria-label="Edit weight increment"
+                className="text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed"
+                aria-label="Adjust weight"
+                disabled={isComplete}
               >
                 <PencilIcon />
               </button>
             )}
           </div>
-          {/* Wire up the onSwap function */}
           <button 
             onClick={onSwap}
-            className="rounded-lg bg-gray-600 py-2 px-4 text-sm font-bold text-white hover:bg-gray-500"
+            className="rounded-lg bg-gray-600 py-2 px-4 text-sm font-bold text-white hover:bg-gray-500 disabled:bg-gray-500 disabled:cursor-not-allowed"
+            disabled={isComplete}
           >
             Swap
           </button>
@@ -74,26 +74,27 @@ const ExerciseDisplay = ({ exercise, onSetToggle, onSwap }) => { // Add onSwap p
           totalSets={exercise.sets}
           completedSets={exercise.completedSets}
           onSetToggle={onSetToggle}
+          isComplete={isComplete}
         />
       </div>
 
-      {/* The increment edit modal is unchanged */}
+      {/* MODIFIED: The modal is now for adjusting weight */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
           <div className="w-full max-w-sm rounded-lg bg-gray-800 p-6 shadow-xl">
-            <h4 className="text-xl font-bold text-white">Edit Increment</h4>
+            <h4 className="text-xl font-bold text-white">Adjust Weight</h4>
             <p className="mt-1 text-sm text-gray-400">
-              Set the weight to add after a successful {exercise.name} session.
+              Enter the amount of weight you want to add for this session.
             </p>
             <div className="mt-4">
-              <label htmlFor="increment" className="sr-only">Increment (lbs)</label>
+              <label htmlFor="weight-to-add" className="sr-only">Weight to Add (lbs)</label>
               <input
                 type="number"
-                id="increment"
-                value={newIncrement}
-                onChange={(e) => setNewIncrement(e.target.value)}
+                id="weight-to-add"
+                value={weightToAdd}
+                onChange={(e) => setWeightToAdd(e.target.value)}
                 className="w-full rounded-md border-gray-600 bg-gray-700 p-2 text-white placeholder-gray-500 focus:border-cyan-500 focus:ring-cyan-500"
-                placeholder="e.g., 5"
+                placeholder="e.g., 20"
               />
             </div>
             <div className="mt-6 flex justify-end space-x-3">
@@ -104,10 +105,10 @@ const ExerciseDisplay = ({ exercise, onSetToggle, onSwap }) => { // Add onSwap p
                 Cancel
               </button>
               <button
-                onClick={handleSaveIncrement}
+                onClick={handleAdjust}
                 className="rounded-md bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-500"
               >
-                Save
+                Add Weight
               </button>
             </div>
           </div>

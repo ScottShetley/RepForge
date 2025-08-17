@@ -15,7 +15,7 @@ import {
   limit
 } from "firebase/firestore";
 
-// Your web app's Firebase configuration... (rest of the config is unchanged)
+// Your web app's Firebase configuration...
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -32,7 +32,7 @@ export const db = getFirestore(app);
 // --- EXERCISE LIBRARY FUNCTIONS ---
 
 /**
- * NEW: Fetches all exercises of a specific category for the swap modal.
+ * Fetches all exercises of a specific category for the swap modal.
  * @param {string} category - The category of exercises to fetch.
  * @returns {Promise<Array>} A promise that resolves to an array of exercise objects.
  */
@@ -55,7 +55,7 @@ export const getExercisesByCategory = async (category) => {
 };
 
 
-// --- WORKOUT SESSION FUNCTIONS --- (saveWorkout, getWorkouts, getLastWorkout are unchanged)
+// --- WORKOUT SESSION FUNCTIONS ---
 export const saveWorkout = async (userId, workoutData) => {
   try {
     const docRef = await addDoc(collection(db, "workout_sessions"), {
@@ -114,13 +114,15 @@ export const getLastWorkout = async (userId) => {
 };
 
 
-// --- USER LIFT PROGRESSION FUNCTIONS --- (defaultLifts, getUserProgress, updateUserProgress, updateIncrement are unchanged)
+// --- USER LIFT PROGRESSION FUNCTIONS ---
+
+// MODIFIED: Added failureCount to the default data model.
 const defaultLifts = [
-  { exerciseId: 'squat', name: 'Squat', currentWeight: 45, increment: 5 },
-  { exerciseId: 'bench-press', name: 'Bench Press', currentWeight: 45, increment: 5 },
-  { exerciseId: 'barbell-row', name: 'Barbell Row', currentWeight: 65, increment: 5 },
-  { exerciseId: 'overhead-press', name: 'Overhead Press', currentWeight: 45, increment: 5 },
-  { exerciseId: 'deadlift', name: 'Deadlift', currentWeight: 95, increment: 10 },
+  { exerciseId: 'squat', name: 'Squat', currentWeight: 45, increment: 5, failureCount: 0 },
+  { exerciseId: 'bench-press', name: 'Bench Press', currentWeight: 45, increment: 5, failureCount: 0 },
+  { exerciseId: 'barbell-row', name: 'Barbell Row', currentWeight: 65, increment: 5, failureCount: 0 },
+  { exerciseId: 'overhead-press', name: 'Overhead Press', currentWeight: 45, increment: 5, failureCount: 0 },
+  { exerciseId: 'deadlift', name: 'Deadlift', currentWeight: 95, increment: 10, failureCount: 0 },
 ];
 
 export const getUserProgress = async (userId) => {
@@ -150,10 +152,16 @@ export const getUserProgress = async (userId) => {
   }
 };
 
-export const updateUserProgress = async (progressId, newWeight) => {
+/**
+ * NEW / REPLACES updateUserProgress: A more flexible function to update any
+ * combination of fields for a user's lift progression.
+ * @param {string} progressId - The document ID of the user's lift progression.
+ * @param {object} updates - An object containing the fields to update.
+ */
+export const updateUserProgressAfterWorkout = async (progressId, updates) => {
   const docRef = doc(db, "user_lift_progress", progressId);
   try {
-    await updateDoc(docRef, { currentWeight: newWeight });
+    await updateDoc(docRef, updates);
   } catch (error) {
     console.error("Error updating user progress: ", error);
     throw new Error("Could not update lift progress.");
@@ -169,6 +177,5 @@ export const updateIncrement = async (progressId, newIncrement) => {
     throw new Error("Could not update increment.");
   }
 };
-
 
 export default app;
