@@ -1,6 +1,6 @@
 import React from 'react';
 import {useNavigate, NavLink} from 'react-router-dom';
-import {useAuth} from '../../context/AuthContext';
+import {useAuth} from '../../hooks/useAuth'; // MODIFIED
 
 const Header = () => {
   const {currentUser, logout} = useAuth ();
@@ -24,15 +24,12 @@ const Header = () => {
     <header className="bg-gray-900 shadow-md">
       <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
         <div className="flex items-center space-x-8">
-          {/* --- App Title --- */}
           <h1 className="text-2xl font-bold text-cyan-400">RepForge</h1>
-
-          {/* --- NEW: Main Navigation --- */}
           {currentUser &&
             <nav className="flex space-x-4">
               <NavLink
                 to="/"
-                end // Use 'end' to prevent this from matching child routes
+                end
                 className={({isActive}) =>
                   `${linkStyle} ${isActive ? activeLinkStyle : inactiveLinkStyle}`}
               >
@@ -45,10 +42,15 @@ const Header = () => {
               >
                 New Workout
               </NavLink>
+              <NavLink
+                to="/instructions"
+                className={({isActive}) =>
+                  `${linkStyle} ${isActive ? activeLinkStyle : inactiveLinkStyle}`}
+              >
+                Instructions
+              </NavLink>
             </nav>}
         </div>
-
-        {/* --- User Info and Logout Button --- */}
         {currentUser &&
           <div className="flex items-center space-x-4">
             <span className="text-sm text-gray-300">{currentUser.email}</span>

@@ -1,6 +1,6 @@
 import React, {useState, useEffect} from 'react';
 import MainLayout from '../components/layout/MainLayout';
-import {useAuth} from '../context/AuthContext';
+import {useAuth} from '../hooks/useAuth'; // MODIFIED: Corrected import path
 import {getWorkouts} from '../services/firebase';
 
 const Dashboard = () => {
@@ -50,7 +50,7 @@ const Dashboard = () => {
     if (workouts.length === 0) {
       return (
         <p className="text-center text-gray-400">
-          No workout sessions saved yet. Go to the 'Workout' page to save your first session!
+          No workout sessions saved yet. Go to the 'New Workout' page to save your first session!
         </p>
       );
     }

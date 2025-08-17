@@ -1,10 +1,13 @@
 import {BrowserRouter as Router, Routes, Route} from 'react-router-dom';
-import {AuthProvider} from './context/AuthContext';
+import {AuthProvider} from './context/AuthProvider'; // MODIFIED: Import from new file
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import SetupRoute from './components/auth/SetupRoute';
 
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
-import Workout from './pages/Workout'; // Import the new Workout page
+import Workout from './pages/Workout';
+import Instructions from './pages/Instructions';
+import Setup from './pages/Setup';
 
 function App () {
   return (
@@ -12,26 +15,37 @@ function App () {
       <AuthProvider>
         <div className="min-h-screen bg-gray-800 text-white">
           <Routes>
-            {/* Publicly accessible login page */}
             <Route path="/login" element={<Login />} />
-
-            {/* Protected dashboard page */}
             <Route
-              path="/"
+              path="/setup"
               element={
                 <ProtectedRoute>
-                  <Dashboard />
+                  <Setup />
                 </ProtectedRoute>
               }
             />
-
-            {/* NEW: Protected workout page */}
+            <Route
+              path="/"
+              element={
+                <SetupRoute>
+                  <Dashboard />
+                </SetupRoute>
+              }
+            />
             <Route
               path="/workout"
               element={
-                <ProtectedRoute>
+                <SetupRoute>
                   <Workout />
-                </ProtectedRoute>
+                </SetupRoute>
+              }
+            />
+            <Route
+              path="/instructions"
+              element={
+                <SetupRoute>
+                  <Instructions />
+                </SetupRoute>
               }
             />
           </Routes>

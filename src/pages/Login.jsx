@@ -1,6 +1,6 @@
 import React, {useState, useEffect} from 'react';
 import {useNavigate} from 'react-router-dom';
-import {useAuth} from '../context/AuthContext';
+import {useAuth} from '../hooks/useAuth'; // MODIFIED: Corrected import path
 
 export default function Login () {
   // --- STATE MANAGEMENT ---
@@ -34,7 +34,7 @@ export default function Login () {
       setError ('');
       setLoading (true);
       await signup (email, password);
-      navigate ('/'); // Redirect on successful signup
+      // The setup route will handle navigation for new users
     } catch (err) {
       setError ('Failed to create an account. Please try again.');
       console.error (err);
@@ -48,7 +48,7 @@ export default function Login () {
       setError ('');
       setLoading (true);
       await login (email, password);
-      navigate ('/'); // Redirect on successful signin
+      // The setup route will handle navigation for existing users
     } catch (err) {
       setError ('Failed to sign in. Check your email and password.');
       console.error (err);

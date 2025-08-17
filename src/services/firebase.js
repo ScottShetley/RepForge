@@ -12,10 +12,12 @@ import {
   doc,
   updateDoc,
   orderBy,
-  limit
+  limit,
+  setDoc,
+  getDoc
 } from "firebase/firestore";
 
-// Your web app's Firebase configuration...
+// ... (firebaseConfig is unchanged)
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -29,6 +31,56 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
+// --- NEW: USER PROFILE FUNCTIONS ---
+
+/**
+ * Creates a user profile document in Firestore upon signup.
+ * @param {object} user - The user object from Firebase Authentication.
+ */
+export const createUserProfile = async (user) => {
+  const userRef = doc(db, "users", user.uid);
+  try {
+    await setDoc(userRef, {
+      uid: user.uid,
+      email: user.email,
+      isSetupComplete: false, // Default to false
+      createdAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error("Error creating user profile:", error);
+  }
+};
+
+/**
+ * Fetches a user's profile document from Firestore.
+ * @param {string} uid - The user's unique ID.
+ * @returns {Promise<object|null>} The user profile data or null if not found.
+ */
+export const getUserProfile = async (uid) => {
+  const userRef = doc(db, "users", uid);
+  const docSnap = await getDoc(userRef);
+  if (docSnap.exists()) {
+    return docSnap.data();
+  } else {
+    return null;
+  }
+};
+
+/**
+ * Updates a user's profile document.
+ * @param {string} uid - The user's unique ID.
+ * @param {object} updates - An object with the fields to update.
+ */
+export const updateUserProfile = async (uid, updates) => {
+    const userRef = doc(db, "users", uid);
+    try {
+        await updateDoc(userRef, updates);
+    } catch (error) {
+        console.error("Error updating user profile:", error);
+    }
+};
+
+// ... (Exercise and Workout Session functions are unchanged)
 // --- EXERCISE LIBRARY FUNCTIONS ---
 
 /**
@@ -116,7 +168,6 @@ export const getLastWorkout = async (userId) => {
 
 // --- USER LIFT PROGRESSION FUNCTIONS ---
 
-// MODIFIED: Added failureCount to the default data model.
 const defaultLifts = [
   { exerciseId: 'squat', name: 'Squat', currentWeight: 45, increment: 5, failureCount: 0 },
   { exerciseId: 'bench-press', name: 'Bench Press', currentWeight: 45, increment: 5, failureCount: 0 },
@@ -125,12 +176,37 @@ const defaultLifts = [
   { exerciseId: 'deadlift', name: 'Deadlift', currentWeight: 95, increment: 10, failureCount: 0 },
 ];
 
+/**
+ * Creates the initial lift progression documents for a user based on their setup form.
+ * @param {string} userId - The user's unique ID.
+ * @param {object} baselineWeights - An object with starting weights for each core lift.
+ */
+export const createInitialUserProgress = async (userId, baselineWeights) => {
+  const progressCol = collection(db, "user_lift_progress");
+  const batch = writeBatch(db);
+
+  const liftsToCreate = defaultLifts.map(lift => ({
+    ...lift,
+    currentWeight: baselineWeights[lift.exerciseId] || lift.currentWeight,
+  }));
+  
+  liftsToCreate.forEach(lift => {
+    const newDocRef = doc(progressCol);
+    batch.set(newDocRef, { userId, ...lift });
+  });
+
+  await batch.commit();
+};
+
+
 export const getUserProgress = async (userId) => {
   const progressCol = collection(db, "user_lift_progress");
   const q = query(progressCol, where("userId", "==", userId));
   const querySnapshot = await getDocs(q);
 
   if (querySnapshot.empty) {
+    // This is now a fallback for users who existed before the setup flow.
+    // New users should have their progress created by `createInitialUserProgress`.
     const batch = writeBatch(db);
     const userProgress = {};
 
@@ -152,12 +228,6 @@ export const getUserProgress = async (userId) => {
   }
 };
 
-/**
- * NEW / REPLACES updateUserProgress: A more flexible function to update any
- * combination of fields for a user's lift progression.
- * @param {string} progressId - The document ID of the user's lift progression.
- * @param {object} updates - An object containing the fields to update.
- */
 export const updateUserProgressAfterWorkout = async (progressId, updates) => {
   const docRef = doc(db, "user_lift_progress", progressId);
   try {
@@ -165,16 +235,6 @@ export const updateUserProgressAfterWorkout = async (progressId, updates) => {
   } catch (error) {
     console.error("Error updating user progress: ", error);
     throw new Error("Could not update lift progress.");
-  }
-};
-
-export const updateIncrement = async (progressId, newIncrement) => {
-  const docRef = doc(db, "user_lift_progress", progressId);
-  try {
-    await updateDoc(docRef, { increment: newIncrement });
-  } catch (error) {
-    console.error("Error updating increment: ", error);
-    throw new Error("Could not update increment.");
   }
 };
 

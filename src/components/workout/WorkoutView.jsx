@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import ExerciseDisplay from './ExerciseDisplay';
 import SubSetWorkout from './SubSetWorkout';
 import ExerciseSwapModal from './ExerciseSwapModal';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../hooks/useAuth'; // MODIFIED
 import {
   saveWorkout,
   getUserProgress,
@@ -12,7 +12,6 @@ import {
 } from '../../services/firebase';
 import { produce } from 'immer';
 
-// ... (workoutTemplates object is unchanged)
 const workoutTemplates = {
   workoutA: {
     id: 'workoutA',
@@ -120,7 +119,6 @@ const WorkoutView = () => {
     );
   };
   
-  // NEW: Handler to adjust the weight for a single exercise
   const handleWeightAdjust = (exerciseIndex, weightToAdd) => {
     setWorkoutState(
       produce(draft => {
@@ -130,7 +128,6 @@ const WorkoutView = () => {
     );
   };
 
-  // ... other handlers are unchanged
   const handleAccessoryWeightChange = (exerciseIndex, newWeight) => {
     setWorkoutState(
       produce(draft => {
@@ -205,9 +202,6 @@ const WorkoutView = () => {
       const newLiftProgressState = { ...liftProgress };
 
       workoutState.exercises.forEach(exercise => {
-        // This logic is now only for calculating progression after a save.
-        // It does not use the adjusted weight for its calculation, which is correct.
-        // It uses the original weight from liftProgress.
         const progressData = liftProgress[exercise.exerciseId]; 
         if (!progressData) return;
 
@@ -302,7 +296,6 @@ const WorkoutView = () => {
               onSetToggle={(setIndex) => handleSetToggle('exercises', index, setIndex)}
               onSwap={() => handleOpenSwapModal(index)}
               isComplete={isSessionComplete}
-              // MODIFIED: Pass the new handler to the component
               onWeightAdjust={(weightToAdd) => handleWeightAdjust(index, weightToAdd)}
             />
           ))}
