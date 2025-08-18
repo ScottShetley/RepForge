@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import SetLogger from './SetLogger';
-// REMOVED: updateIncrement is no longer needed here.
 
 const PencilIcon = () => (
   <svg 
@@ -14,23 +13,31 @@ const PencilIcon = () => (
   </svg>
 );
 
+const CalculatorIcon = () => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 20 20" 
+    fill="currentColor" 
+    className="w-5 h-5"
+  >
+    <path fillRule="evenodd" d="M10 2a8 8 0 100 16 8 8 0 000-16zM5.5 4.5a.5.5 0 00-1 0v11a.5.5 0 001 0v-11zM15.5 4.5a.5.5 0 00-1 0v11a.5.5 0 001 0v-11zM6 7a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+  </svg>
+);
 
-// MODIFIED: Added isComplete and onWeightAdjust props
-const ExerciseDisplay = ({ exercise, onSetToggle, onSwap, isComplete, onWeightAdjust }) => {
+
+const ExerciseDisplay = ({ exercise, onSetToggle, onSwap, isComplete, onWeightAdjust, onCalculatorOpen }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  // MODIFIED: State now holds the weight to add, not the new increment
   const [weightToAdd, setWeightToAdd] = useState('');
 
-  // MODIFIED: New handler for adjusting weight
   const handleAdjust = () => {
     const value = parseFloat(weightToAdd);
     if (isNaN(value) || value <= 0) {
       alert("Please enter a valid, positive number.");
       return;
     }
-    onWeightAdjust(value); // Call the function passed from WorkoutView
-    setWeightToAdd('');   // Reset input
-    setIsModalOpen(false);  // Close modal
+    onWeightAdjust(value);
+    setWeightToAdd('');
+    setIsModalOpen(false);
   };
 
   return (
@@ -42,7 +49,6 @@ const ExerciseDisplay = ({ exercise, onSetToggle, onSwap, isComplete, onWeightAd
               <h3 className="text-2xl font-bold text-white">{exercise.name}</h3>
               {exercise.increment ? (
                 <p className="font-semibold text-gray-300">
-                  {/* MODIFIED: Simplified display */}
                   {exercise.sets}x{exercise.reps} &bull; {exercise.weight} lbs
                 </p>
               ) : (
@@ -52,14 +58,24 @@ const ExerciseDisplay = ({ exercise, onSetToggle, onSwap, isComplete, onWeightAd
               )}
             </div>
             {exercise.increment && (
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed"
-                aria-label="Adjust weight"
-                disabled={isComplete}
-              >
-                <PencilIcon />
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed"
+                  aria-label="Adjust weight"
+                  disabled={isComplete}
+                >
+                  <PencilIcon />
+                </button>
+                <button
+                  onClick={() => onCalculatorOpen(exercise.weight)}
+                  className="text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed"
+                  aria-label="Plate Calculator"
+                  disabled={isComplete}
+                >
+                  <CalculatorIcon />
+                </button>
+              </div>
             )}
           </div>
           <button 
@@ -78,7 +94,6 @@ const ExerciseDisplay = ({ exercise, onSetToggle, onSwap, isComplete, onWeightAd
         />
       </div>
 
-      {/* MODIFIED: The modal is now for adjusting weight */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
           <div className="w-full max-w-sm rounded-lg bg-gray-800 p-6 shadow-xl">

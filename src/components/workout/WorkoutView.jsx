@@ -3,15 +3,18 @@ import { Link } from 'react-router-dom';
 import ExerciseDisplay from './ExerciseDisplay';
 import SubSetWorkout from './SubSetWorkout';
 import ExerciseSwapModal from './ExerciseSwapModal';
-import { useAuth } from '../../hooks/useAuth'; // MODIFIED
+import PlateCalculatorModal from './PlateCalculatorModal'; // New
+import { useAuth } from '../../hooks/useAuth';
 import {
   saveWorkout,
   getUserProgress,
   updateUserProgressAfterWorkout,
   getLastWorkout,
+  getUserSettings, // New
 } from '../../services/firebase';
 import { produce } from 'immer';
 
+// --- FIX: Added the missing workoutTemplates constant ---
 const workoutTemplates = {
   workoutA: {
     id: 'workoutA',
@@ -50,21 +53,30 @@ const DELOAD_THRESHOLD = 3;
 const DELOAD_PERCENTAGE = 0.9;
 
 const WorkoutView = () => {
+  const { currentUser } = useAuth();
   const [currentWorkoutId, setCurrentWorkoutId] = useState(null); 
   const [liftProgress, setLiftProgress] = useState(null);
   const [workoutState, setWorkoutState] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
-  const { currentUser } = useAuth();
   
+  // Settings state
+  const [userSettings, setUserSettings] = useState(null); // New
+
+  // Modal states
   const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
   const [exerciseToSwap, setExerciseToSwap] = useState(null);
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false); // New
+  const [calculatorWeight, setCalculatorWeight] = useState(0); // New
 
   const [isSessionComplete, setIsSessionComplete] = useState(false);
 
   useEffect(() => {
     if (currentUser && !liftProgress) {
       const fetchData = async () => {
+        const settings = await getUserSettings(currentUser.uid); // Fetch settings
+        setUserSettings(settings);
+
         const lastWorkout = await getLastWorkout(currentUser.uid);
         const nextWorkoutId =
           !lastWorkout || lastWorkout.id === 'workoutB'
@@ -80,6 +92,7 @@ const WorkoutView = () => {
     }
   }, [currentUser, liftProgress]);
 
+  // useEffect for hydrating workoutState
   useEffect(() => {
     if (currentWorkoutId && liftProgress) {
       const template = workoutTemplates[currentWorkoutId];
@@ -111,6 +124,17 @@ const WorkoutView = () => {
     }
   }, [currentWorkoutId, liftProgress]);
 
+  // --- NEW: Calculator Modal Handlers ---
+  const handleOpenCalculator = (weight) => {
+    setCalculatorWeight(weight);
+    setIsCalculatorOpen(true);
+  };
+
+  const handleCloseCalculator = () => {
+    setIsCalculatorOpen(false);
+  };
+  
+  // all other handler functions
   const handleSetToggle = (exerciseType, exerciseIndex, setIndex) => {
     setWorkoutState(
       produce(draft => {
@@ -252,9 +276,9 @@ const WorkoutView = () => {
       : 'bg-gray-600 text-gray-300 hover:bg-gray-500';
   };
 
-  if (!workoutState) {
+  if (!workoutState || !userSettings) { // Modified to wait for settings
     return (
-      <div className="p-6 text-white text-center">Determining next workout...</div>
+      <div className="p-6 text-white text-center">Loading workout data...</div>
     );
   }
 
@@ -297,6 +321,7 @@ const WorkoutView = () => {
               onSwap={() => handleOpenSwapModal(index)}
               isComplete={isSessionComplete}
               onWeightAdjust={(weightToAdd) => handleWeightAdjust(index, weightToAdd)}
+              onCalculatorOpen={handleOpenCalculator} // New
             />
           ))}
         </div>
@@ -336,6 +361,14 @@ const WorkoutView = () => {
         onClose={handleCloseSwapModal}
         onExerciseSelect={handleExerciseSelect}
         exerciseToSwap={exerciseToSwap}
+      />
+
+      {/* New Modal */}
+      <PlateCalculatorModal
+        isOpen={isCalculatorOpen}
+        onClose={handleCloseCalculator}
+        targetWeight={calculatorWeight}
+        barbellWeight={userSettings.barbellWeight}
       />
     </>
   );
