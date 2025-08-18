@@ -165,3 +165,23 @@
     /* A dark text for contrast */
     font-weight: bold;
 }
+
+/* --- NEW: Mobile-specific styles for a more compact view --- */
+@media (max-width: 768px) {
+    .react-calendar {
+        padding: 0.5em;
+    }
+
+    .react-calendar__navigation button {
+        min-width: 30px;
+        font-size: 1em;
+    }
+
+    .react-calendar__tile {
+        padding: 0.5em 0.25em;
+    }
+
+    .react-calendar__month-view__weekdays__weekday {
+        font-size: 0.65em;
+    }
+}
