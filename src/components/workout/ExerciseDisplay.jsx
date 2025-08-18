@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import SetLogger from './SetLogger';
 
+// ... (PencilIcon and CalculatorIcon components remain the same) ...
 const PencilIcon = () => (
   <svg 
     xmlns="http://www.w3.org/2000/svg" 
@@ -26,8 +27,11 @@ const CalculatorIcon = () => (
 
 
 const ExerciseDisplay = ({ exercise, onSetToggle, onSwap, isComplete, onWeightAdjust, onCalculatorOpen }) => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [adjustModalOpen, setAdjustModalOpen] = useState(false);
   const [weightToAdd, setWeightToAdd] = useState('');
+  
+  // --- NEW: State for the timer ---
+  const [activeTimerSet, setActiveTimerSet] = useState(null);
 
   const handleAdjust = () => {
     const value = parseFloat(weightToAdd);
@@ -37,7 +41,18 @@ const ExerciseDisplay = ({ exercise, onSetToggle, onSwap, isComplete, onWeightAd
     }
     onWeightAdjust(value);
     setWeightToAdd('');
-    setIsModalOpen(false);
+    setAdjustModalOpen(false);
+  };
+  
+  // --- NEW: Timer logic handlers ---
+  const handleTimerStart = (setIndex) => {
+    // A set was just completed, so show the timer options.
+    setActiveTimerSet(setIndex);
+  };
+  
+  const handleTimerComplete = () => {
+    // Timer is done, hide the timer options and return to the checkmark.
+    setActiveTimerSet(null);
   };
 
   return (
@@ -60,7 +75,7 @@ const ExerciseDisplay = ({ exercise, onSetToggle, onSwap, isComplete, onWeightAd
             {exercise.increment && (
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => setIsModalOpen(true)}
+                  onClick={() => setAdjustModalOpen(true)}
                   className="text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed"
                   aria-label="Adjust weight"
                   disabled={isComplete}
@@ -91,10 +106,14 @@ const ExerciseDisplay = ({ exercise, onSetToggle, onSwap, isComplete, onWeightAd
           completedSets={exercise.completedSets}
           onSetToggle={onSetToggle}
           isComplete={isComplete}
+          // --- NEW: Props for timer ---
+          activeTimerSet={activeTimerSet}
+          onTimerStart={handleTimerStart}
+          onTimerComplete={handleTimerComplete}
         />
       </div>
 
-      {isModalOpen && (
+      {adjustModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
           <div className="w-full max-w-sm rounded-lg bg-gray-800 p-6 shadow-xl">
             <h4 className="text-xl font-bold text-white">Adjust Weight</h4>
@@ -114,7 +133,7 @@ const ExerciseDisplay = ({ exercise, onSetToggle, onSwap, isComplete, onWeightAd
             </div>
             <div className="mt-6 flex justify-end space-x-3">
               <button
-                onClick={() => setIsModalOpen(false)}
+                onClick={() => setAdjustModalOpen(false)}
                 className="rounded-md bg-gray-600 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-500"
               >
                 Cancel

@@ -1,25 +1,59 @@
 import React from 'react';
+import RestTimer from './RestTimer';
 
-const SetLogger = ({totalSets, completedSets, onSetToggle}) => {
-  const setsCount = Number (totalSets) || 0;
-  const sets = Array.from ({length: setsCount}, (_, i) => i); // Create an array of indices [0, 1, 2, ...]
+const SetLogger = ({
+  totalSets,
+  completedSets,
+  onSetToggle,
+  isComplete,
+  activeTimerSet,
+  onTimerStart,
+  onTimerComplete,
+}) => {
+  const setsCount = Number(totalSets) || 0;
+  const sets = Array.from({ length: setsCount }, (_, i) => i);
 
   return (
     <div className="flex flex-wrap gap-3 pt-2">
-      {sets.map (setIndex => {
-        // The style is now determined by the prop passed from the parent
+      {sets.map(setIndex => {
         const isCompleted = completedSets[setIndex];
+        const isTimerActiveForThisSet = activeTimerSet === setIndex;
+
         const baseStyle =
-          'w-10 h-10 rounded-full flex items-center justify-center text-lg font-semibold cursor-pointer transition-colors duration-200';
-        const completedStyle = 'bg-cyan-500 text-white';
-        const incompleteStyle = 'bg-gray-600 hover:bg-cyan-500';
+          'w-10 h-10 rounded-full flex items-center justify-center text-lg font-semibold transition-colors duration-200';
+        
+        // Timer takes precedence over checkmark
+        if (isTimerActiveForThisSet) {
+          return (
+             <div key={setIndex} className={`${baseStyle} bg-gray-900 w-auto px-2`}>
+                <RestTimer onTimerComplete={() => onTimerComplete(setIndex)} />
+             </div>
+          );
+        }
+
+        // Standard checkmark/number display
+        const completedStyle = 'bg-cyan-500 text-white cursor-pointer';
+        const incompleteStyle = 'bg-gray-600 hover:bg-cyan-500 cursor-pointer';
+        const disabledStyle = 'bg-gray-500 cursor-not-allowed';
+
+        let style = isCompleted ? completedStyle : incompleteStyle;
+        if (isComplete) style = disabledStyle;
+        
+        const handleClick = () => {
+          if (!isComplete) {
+            onSetToggle(setIndex);
+            // If we are marking a set as complete, start the timer prompt
+            if (!isCompleted) {
+              onTimerStart(setIndex);
+            }
+          }
+        };
 
         return (
           <div
             key={setIndex}
-            className={`${baseStyle} ${isCompleted ? completedStyle : incompleteStyle}`}
-            // When clicked, it calls the function passed down from the parent
-            onClick={() => onSetToggle (setIndex)}
+            className={`${baseStyle} ${style}`}
+            onClick={handleClick}
           >
             {isCompleted
               ? <svg
