@@ -1,6 +1,6 @@
 import React, {useState, useEffect} from 'react';
 import MainLayout from '../components/layout/MainLayout';
-import {useAuth} from '../hooks/useAuth'; // MODIFIED: Corrected import path
+import {useAuth} from '../hooks/useAuth';
 import {getWorkouts} from '../services/firebase';
 
 const Dashboard = () => {
@@ -36,7 +36,7 @@ const Dashboard = () => {
       fetchWorkouts ();
     },
     [currentUser]
-  ); // Rerun effect if the user changes
+  );
 
   const renderContent = () => {
     if (loading) {
@@ -87,6 +87,31 @@ const Dashboard = () => {
                 </li>
               ))}
             </ul>
+
+            {/* --- NEW: Subset Workout Display --- */}
+            {workout.subSetWorkout &&
+              workout.subSetWorkout.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-700">
+                  <h4 className="mb-2 text-lg font-semibold text-cyan-300">
+                    Subset Work
+                  </h4>
+                  <ul className="space-y-2">
+                    {workout.subSetWorkout.map ((subEx, subIndex) => (
+                      <li
+                        key={subIndex}
+                        className="flex justify-between border-b border-gray-700 py-1 text-gray-300"
+                      >
+                        <span>{subEx.name}</span>
+                        <span className="font-mono">
+                          {subEx.sets}x{subEx.reps} @ {subEx.weight || '0'}lbs
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            {/* --- END: Subset Workout Display --- */}
+
           </div>
         ))}
       </div>
