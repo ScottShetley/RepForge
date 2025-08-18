@@ -13,6 +13,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, update: if request.auth.uid == userId;
       allow create: if request.auth.uid == userId;
+
+      // --- NEW RULE FOR USER SETTINGS ---
+      // Allow users to read and write documents in their own 'settings' subcollection.
+      match /settings/{settingId} {
+        allow read, write: if request.auth.uid == userId;
+      }
     }
 
     // Collection: exercises (Master Library)

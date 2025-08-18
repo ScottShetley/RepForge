@@ -238,4 +238,89 @@ export const updateUserProgressAfterWorkout = async (progressId, updates) => {
   }
 };
 
+// --- USER SETTINGS FUNCTIONS ---
+
+const defaultSettings = {
+  barbellWeight: 45,
+  legPressSledWeight: 75,
+  increments: {
+    squat: 5,
+    'bench-press': 5,
+    'barbell-row': 5,
+    'overhead-press': 5,
+    deadlift: 10,
+  },
+};
+
+export const getUserSettings = async (userId) => {
+  const settingsRef = doc(db, "users", userId, "settings", "userSettings");
+  const docSnap = await getDoc(settingsRef);
+
+  if (docSnap.exists()) {
+    return { ...defaultSettings, ...docSnap.data() };
+  } else {
+    return defaultSettings;
+  }
+};
+
+export const saveUserSettings = async (userId, settingsData) => {
+  const settingsRef = doc(db, "users", userId, "settings", "userSettings");
+  try {
+    await setDoc(settingsRef, settingsData, { merge: true });
+  } catch (error) {
+    console.error("Error saving user settings:", error);
+    throw new Error("Could not save settings.");
+  }
+};
+
+export const resetLiftProgress = async (userId, liftId) => {
+  const progressCol = collection(db, "user_lift_progress");
+  const q = query(
+    progressCol,
+    where("userId", "==", userId),
+    where("exerciseId", "==", liftId)
+  );
+  
+  const querySnapshot = await getDocs(q);
+  if (querySnapshot.empty) {
+    throw new Error("Could not find lift progress to reset.");
+  }
+  
+  const defaultLift = defaultLifts.find(l => l.exerciseId === liftId);
+  if (!defaultLift) {
+    throw new Error("Default lift data not found.");
+  }
+  
+  const docToReset = querySnapshot.docs[0];
+  await updateDoc(docToReset.ref, {
+    currentWeight: defaultLift.currentWeight,
+    failureCount: 0,
+  });
+};
+
+export const resetAllProgress = async (userId) => {
+  const progressCol = collection(db, "user_lift_progress");
+  const q = query(progressCol, where("userId", "==", userId));
+  const querySnapshot = await getDocs(q);
+  
+  if (querySnapshot.empty) {
+    return; // Nothing to reset
+  }
+  
+  const batch = writeBatch(db);
+  querySnapshot.forEach(doc => {
+    const liftData = doc.data();
+    const defaultLift = defaultLifts.find(l => l.exerciseId === liftData.exerciseId);
+    if (defaultLift) {
+      batch.update(doc.ref, {
+        currentWeight: defaultLift.currentWeight,
+        failureCount: 0,
+      });
+    }
+  });
+  
+  await batch.commit();
+};
+
+
 export default app;

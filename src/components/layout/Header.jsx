@@ -1,6 +1,6 @@
 import React from 'react';
 import {useNavigate, NavLink} from 'react-router-dom';
-import {useAuth} from '../../hooks/useAuth'; // MODIFIED
+import {useAuth} from '../../hooks/useAuth';
 
 const Header = () => {
   const {currentUser, logout} = useAuth ();
@@ -48,6 +48,13 @@ const Header = () => {
                   `${linkStyle} ${isActive ? activeLinkStyle : inactiveLinkStyle}`}
               >
                 Instructions
+              </NavLink>
+              <NavLink
+                to="/settings"
+                className={({isActive}) =>
+                  `${linkStyle} ${isActive ? activeLinkStyle : inactiveLinkStyle}`}
+              >
+                Settings
               </NavLink>
             </nav>}
         </div>

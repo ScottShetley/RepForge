@@ -1,5 +1,5 @@
 import {BrowserRouter as Router, Routes, Route} from 'react-router-dom';
-import {AuthProvider} from './context/AuthProvider'; // MODIFIED: Import from new file
+import {AuthProvider} from './context/AuthProvider';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import SetupRoute from './components/auth/SetupRoute';
 
@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import Workout from './pages/Workout';
 import Instructions from './pages/Instructions';
 import Setup from './pages/Setup';
+import Settings from './pages/Settings'; // New
 
 function App () {
   return (
@@ -45,6 +46,15 @@ function App () {
               element={
                 <SetupRoute>
                   <Instructions />
+                </SetupRoute>
+              }
+            />
+            {/* New Route */}
+            <Route
+              path="/settings"
+              element={
+                <SetupRoute>
+                  <Settings />
                 </SetupRoute>
               }
             />
