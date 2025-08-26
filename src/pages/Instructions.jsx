@@ -13,10 +13,10 @@ const Instructions = () => {
           <div className="space-y-6 text-gray-300">
             <section>
               <h2 className="mb-2 text-2xl font-semibold text-cyan-400">
-                Logging a Workout
+                Starting a Workout
               </h2>
               <p>
-                Navigate to the "New Workout" page. The application will automatically suggest your next workout (A or B) based on your history. To log a set, simply click on the corresponding circle. It will fill in to indicate completion.
+                From the Dashboard, you have two options: "Start RepForge Workout" for your main strength progression, or "Start Circuit Workout" for machine-based training. The application will automatically suggest your next RepForge workout (A or B) based on your history.
               </p>
             </section>
 
@@ -24,9 +24,8 @@ const Instructions = () => {
               <h2 className="mb-2 text-2xl font-semibold text-cyan-400">
                 Progression, Failures & Deloads
               </h2>
-              {/* MODIFIED: Changed "StrongLifts 5x5" to "RepForge" */}
               <p className="mb-2">
-                The app automates the RepForge progression rules:
+                The app automates the RepForge progression rules for the main workout:
               </p>
               <ul className="list-inside list-disc space-y-1 pl-2">
                 <li>
@@ -47,12 +46,22 @@ const Instructions = () => {
               </ul>
             </section>
 
+            {/* --- NEW SECTION --- */}
             <section>
               <h2 className="mb-2 text-2xl font-semibold text-cyan-400">
-                Adjusting & Swapping
+                Circuit Training
+              </h2>
+              <p>
+                The Circuit Tracker is designed for machine-based workouts. Simply enter the weight and number of reps you performed for each exercise. Only exercises where you have entered both a weight and reps will be saved to your workout history.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="mb-2 text-2xl font-semibold text-cyan-400">
+                Adjusting & Swapping (RepForge Workout)
               </h2>
               <p className="mb-2">
-                You have full control over your workout session:
+                You have full control over your RepForge workout session:
               </p>
               <ul className="list-inside list-disc space-y-1 pl-2">
                 <li>
@@ -67,12 +76,13 @@ const Instructions = () => {
                 </li>
               </ul>
             </section>
+
             <section>
               <h2 className="mb-2 text-2xl font-semibold text-cyan-400">
                 Finishing Your Session
               </h2>
               <p>
-                When you are done with your main lifts, click the "Finish & Save Workout" button. This will lock in your progression for the day. The app does not automatically switch to the next workout; your next session will be ready for you the next time you visit the "New Workout" page.
+                When you are done, click the "Save and Finish" button. This will lock in your progression for the day and save the session to your history. The app will have your next workout ready for you the next time you visit.
               </p>
             </section>
           </div>

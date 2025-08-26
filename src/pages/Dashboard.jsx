@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom'; // New Import
+import { Link } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import WorkoutCalendar from '../components/dashboard/WorkoutCalendar';
 import WorkoutModal from '../components/dashboard/WorkoutModal';
@@ -133,10 +133,10 @@ const Dashboard = () => {
       <div className="p-4 md:p-6">
         <h2 className="mb-6 text-3xl font-bold text-white">Workout Dashboard</h2>
         
-        {/* --- NEW: START WORKOUT SECTION --- */}
+        {/* --- START WORKOUT SECTION --- */}
         <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
           <Link to="/workout" className="block w-full text-center bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-lg">
-              Start 5x5 Workout
+              Start RepForge Workout
           </Link>
           <Link to="/circuit-tracker" className="block w-full text-center bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-lg">
               Start Circuit Workout
