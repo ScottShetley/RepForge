@@ -11,32 +11,33 @@ const SubSetWorkout = ({
 }) => {
   return (
     <div className="mt-8">
-      {/* CORRECTED: Title changed back to "Subset Workout" */}
       <h3 className="mb-4 text-2xl font-bold text-gray-300">
         Subset Workout
       </h3>
       <div className="space-y-4 rounded-lg bg-gray-700/50 p-4">
         {exercises.map ((exercise, exerciseIndex) => (
           <div key={exercise.id}>
-            <div className="grid grid-cols-3 items-center gap-2">
-              <div className="col-span-1">
+            {/* --- MODIFICATION START --- */}
+            {/* Replaced rigid grid with a responsive flexbox layout */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              {/* This div now acts as the left-side container */}
+              <div>
                 <p className="font-bold text-white">{exercise.name}</p>
                 <p className="text-sm text-gray-400">
                   {exercise.sets}x{exercise.reps}
                 </p>
               </div>
 
-              <div className="col-span-2 flex justify-end">
-                <WeightStepper
-                  value={exercise.weight}
-                  onIncrement={() => onIncrement (exerciseIndex)}
-                  onDecrement={() => onDecrement (exerciseIndex)}
-                  onWeightChange={value =>
-                    onWeightChange (exerciseIndex, value)}
-                />
-              </div>
+              {/* WeightStepper is now a direct child of the flex container */}
+              <WeightStepper
+                value={exercise.weight}
+                onIncrement={() => onIncrement (exerciseIndex)}
+                onDecrement={() => onDecrement (exerciseIndex)}
+                onWeightChange={value => onWeightChange (exerciseIndex, value)}
+              />
             </div>
-            <div className="mt-2">
+            {/* --- MODIFICATION END --- */}
+            <div className="mt-3">
               <SetLogger
                 totalSets={exercise.sets}
                 completedSets={exercise.completedSets}
