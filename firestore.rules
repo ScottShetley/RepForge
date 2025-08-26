@@ -19,6 +19,14 @@ service cloud.firestore {
       match /settings/{settingId} {
         allow read, write: if request.auth.uid == userId;
       }
+      
+      // --- MODIFICATION START ---
+      // This rule is now nested inside the user's document to match the new structure.
+      // Allows users to manage their own lift progression data.
+      match /user_lift_progress/{progressId} {
+        allow read, write: if request.auth.uid == userId;
+      }
+      // --- MODIFICATION END ---
     }
 
     // Collection: exercises (Master Library)
@@ -32,14 +40,6 @@ service cloud.firestore {
     // Rules: Allow users to create, read, update, and delete their own workout logs.
     match /workout_sessions/{workoutId} {
       allow read, update, delete: if request.auth.uid == resource.data.userId;
-      allow create: if request.auth.uid == request.resource.data.userId;
-    }
-
-    // --- NEWLY ADDED RULE FOR LIFT PROGRESSION ---
-    // Collection: user_lift_progress
-    // Rules: Allow users to manage their own lift progression data.
-    match /user_lift_progress/{progressId} {
-      allow read, update: if request.auth.uid == resource.data.userId;
       allow create: if request.auth.uid == request.resource.data.userId;
     }
   }

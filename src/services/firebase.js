@@ -174,6 +174,8 @@ const defaultLifts = [
   { exerciseId: 'barbell-row', name: 'Barbell Row', currentWeight: 65, increment: 5, failureCount: 0 },
   { exerciseId: 'overhead-press', name: 'Overhead Press', currentWeight: 45, increment: 5, failureCount: 0 },
   { exerciseId: 'deadlift', name: 'Deadlift', currentWeight: 95, increment: 10, failureCount: 0 },
+  // --- NEW: Add Seated Cable Row to defaults for reference ---
+  { exerciseId: 'seated-cable-row', name: 'Seated Cable Row', currentWeight: 45, increment: 5, failureCount: 0 },
 ];
 
 /**
@@ -181,55 +183,59 @@ const defaultLifts = [
  * @param {string} userId - The user's unique ID.
  * @param {object} baselineWeights - An object with starting weights for each core lift.
  */
+// --- MODIFICATION START ---
+// Rewritten function to fix bugs
 export const createInitialUserProgress = async (userId, baselineWeights) => {
-  const progressCol = collection(db, "user_lift_progress");
+  const progressColRef = collection(db, 'users', userId, 'user_lift_progress');
   const batch = writeBatch(db);
 
-  const liftsToCreate = defaultLifts.map(lift => ({
-    ...lift,
-    currentWeight: baselineWeights[lift.exerciseId] || lift.currentWeight,
-  }));
-  
-  liftsToCreate.forEach(lift => {
-    const newDocRef = doc(progressCol);
-    batch.set(newDocRef, { userId, ...lift });
-  });
+  // Loop through the baseline weights provided from the setup form
+  for (const exerciseId in baselineWeights) {
+    // Find the matching default lift to get its name and increment
+    const defaultLift = defaultLifts.find(lift => lift.exerciseId === exerciseId);
+    
+    // Create a new document with a SPECIFIC ID to prevent duplicates
+    const docRef = doc(progressColRef, exerciseId);
+
+    const liftData = {
+      userId,
+      exerciseId,
+      name: defaultLift ? defaultLift.name : exerciseId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      currentWeight: baselineWeights[exerciseId],
+      increment: defaultLift ? defaultLift.increment : 5, // Default to 5 if not found
+      failureCount: 0,
+    };
+    
+    batch.set(docRef, liftData);
+  }
 
   await batch.commit();
 };
+// --- MODIFICATION END ---
 
 
 export const getUserProgress = async (userId) => {
-  const progressCol = collection(db, "user_lift_progress");
-  const q = query(progressCol, where("userId", "==", userId));
+  // --- MODIFICATION: Point to the correct sub-collection ---
+  const progressCol = collection(db, "users", userId, "user_lift_progress");
+  const q = query(progressCol); // No longer need the where clause for userId
   const querySnapshot = await getDocs(q);
 
   if (querySnapshot.empty) {
-    // This is now a fallback for users who existed before the setup flow.
-    // New users should have their progress created by `createInitialUserProgress`.
-    const batch = writeBatch(db);
-    const userProgress = {};
-
-    defaultLifts.forEach(lift => {
-      const newDocRef = doc(progressCol);
-      batch.set(newDocRef, { userId, ...lift });
-      userProgress[lift.exerciseId] = { id: newDocRef.id, ...lift };
-    });
-
-    await batch.commit();
-    return userProgress;
+    return {}; // Return empty object if no progress is found, don't create defaults here
   } else {
     const userProgress = {};
     querySnapshot.docs.forEach(doc => {
       const data = doc.data();
-      userProgress[data.exerciseId] = { id: doc.id, ...data };
+      // The key is the document ID itself, which we now control
+      userProgress[doc.id] = { id: doc.id, ...data }; 
     });
     return userProgress;
   }
 };
 
-export const updateUserProgressAfterWorkout = async (progressId, updates) => {
-  const docRef = doc(db, "user_lift_progress", progressId);
+export const updateUserProgressAfterWorkout = async (userId, progressId, updates) => {
+  // --- MODIFICATION: Path needs userId to be correct ---
+  const docRef = doc(db, "users", userId, "user_lift_progress", progressId);
   try {
     await updateDoc(docRef, updates);
   } catch (error) {
@@ -274,15 +280,10 @@ export const saveUserSettings = async (userId, settingsData) => {
 };
 
 export const resetLiftProgress = async (userId, liftId) => {
-  const progressCol = collection(db, "user_lift_progress");
-  const q = query(
-    progressCol,
-    where("userId", "==", userId),
-    where("exerciseId", "==", liftId)
-  );
-  
-  const querySnapshot = await getDocs(q);
-  if (querySnapshot.empty) {
+  const docRef = doc(db, "users", userId, "user_lift_progress", liftId);
+  const docSnap = await getDoc(docRef);
+
+  if (!docSnap.exists()) {
     throw new Error("Could not find lift progress to reset.");
   }
   
@@ -291,17 +292,15 @@ export const resetLiftProgress = async (userId, liftId) => {
     throw new Error("Default lift data not found.");
   }
   
-  const docToReset = querySnapshot.docs[0];
-  await updateDoc(docToReset.ref, {
+  await updateDoc(docRef, {
     currentWeight: defaultLift.currentWeight,
     failureCount: 0,
   });
 };
 
 export const resetAllProgress = async (userId) => {
-  const progressCol = collection(db, "user_lift_progress");
-  const q = query(progressCol, where("userId", "==", userId));
-  const querySnapshot = await getDocs(q);
+  const progressCol = collection(db, "users", userId, "user_lift_progress");
+  const querySnapshot = await getDocs(progressCol);
   
   if (querySnapshot.empty) {
     return; // Nothing to reset
