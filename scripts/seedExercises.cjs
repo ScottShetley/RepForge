@@ -33,12 +33,45 @@ const exercises = [
     category: 'Overhead Press',
   },
   {name: 'Deadlift', coreLift: true, bodyPart: 'Back', category: 'Deadlift'},
+  // --- MODIFICATION START ---
+  // Unifying all row variations under a single "Rows" category
   {
     name: 'Barbell Row',
     coreLift: true,
     bodyPart: 'Back',
-    category: 'Barbell Row',
+    category: 'Rows', // Updated
   },
+  {
+    name: 'Dumbbell Row',
+    coreLift: false,
+    bodyPart: 'Back',
+    category: 'Rows', // Updated
+  },
+  {
+    name: 'Seated Cable Row',
+    coreLift: false,
+    bodyPart: 'Back',
+    category: 'Rows', // Updated
+  },
+  {
+    name: 'T-Bar Row',
+    coreLift: false,
+    bodyPart: 'Back',
+    category: 'Rows', // Updated
+  },
+  {
+    name: 'Pendlay Row', // Newly Added
+    coreLift: false,
+    bodyPart: 'Back',
+    category: 'Rows',
+  },
+  {
+    name: 'Machine Row', // Newly Added
+    coreLift: false,
+    bodyPart: 'Back',
+    category: 'Rows',
+  },
+  // --- MODIFICATION END ---
 
   // Squat Alternatives
   {name: 'Leg Press', coreLift: false, bodyPart: 'Legs', category: 'Squat'},
@@ -69,26 +102,6 @@ const exercises = [
     coreLift: false,
     bodyPart: 'Chest',
     category: 'Bench Press',
-  },
-
-  // Barbell Row Alternatives
-  {
-    name: 'Dumbbell Row',
-    coreLift: false,
-    bodyPart: 'Back',
-    category: 'Barbell Row',
-  },
-  {
-    name: 'Seated Cable Row',
-    coreLift: false,
-    bodyPart: 'Back',
-    category: 'Barbell Row',
-  },
-  {
-    name: 'T-Bar Row',
-    coreLift: false,
-    bodyPart: 'Back',
-    category: 'Barbell Row',
   },
 
   // Overhead Press Alternatives
@@ -158,13 +171,12 @@ const seedDatabase = async () => {
   console.log ('Starting to seed the exercises collection...');
   try {
     const exerciseCollection = db.collection ('exercises');
-
     for (const exercise of exercises) {
       // Use the exercise name as the document ID for easier lookup if needed
       await exerciseCollection
         .doc (exercise.name.toLowerCase ().replace (/ /g, '-'))
         .set (exercise);
-      console.log (`Successfully added: ${exercise.name}`);
+      console.log (`Successfully added/updated: ${exercise.name}`);
     }
     console.log ('✅ Seeding completed successfully!');
   } catch (error) {

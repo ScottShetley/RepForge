@@ -22,7 +22,7 @@ const workoutTemplates = {
     coreLifts: [
       { exerciseId: 'squat', sets: 5, reps: 5, category: 'Squat' },
       { exerciseId: 'bench-press', sets: 5, reps: 5, category: 'Bench Press' },
-      { exerciseId: 'barbell-row', sets: 5, reps: 5, category: 'Barbell Row' },
+      { exerciseId: 'seated-cable-row', sets: 5, reps: 5, category: 'Rows' }, // Category updated
     ],
     subSetWorkout: [
       {id: 'acc01', name: 'Dips', sets: 3, reps: '8-12'},
@@ -53,7 +53,7 @@ const DELOAD_THRESHOLD = 3;
 const DELOAD_PERCENTAGE = 0.9;
 
 const WorkoutView = () => {
-  const { currentUser } = useAuth();
+  const { currentUser } = useAuth(); // --- FIX: Removed the stray underscore ---
   const [currentWorkoutId, setCurrentWorkoutId] = useState(null); 
   const [liftProgress, setLiftProgress] = useState(null);
   const [workoutState, setWorkoutState] = useState(null);
@@ -99,6 +99,18 @@ const WorkoutView = () => {
 
       const hydratedExercises = template.coreLifts.map((lift) => {
         const progress = liftProgress[lift.exerciseId];
+        // FIX: Add a check for missing progress data
+        if (!progress) {
+          console.warn(`No progress data found for exerciseId: ${lift.exerciseId}. This may be a new or swapped exercise.`);
+          return {
+            ...lift,
+            progressId: lift.exerciseId, // Use exerciseId as a fallback key
+            name: lift.category, // Use category as a fallback name
+            weight: 45, // Default starting weight
+            increment: 5, // Default increment
+            completedSets: Array(lift.sets).fill(false),
+          };
+        }
         return {
           ...lift,
           progressId: progress.id,
