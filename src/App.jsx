@@ -8,7 +8,8 @@ import Login from './pages/Login';
 import Workout from './pages/Workout';
 import Instructions from './pages/Instructions';
 import Setup from './pages/Setup';
-import Settings from './pages/Settings'; // New
+import Settings from './pages/Settings';
+import CircuitTracker from './pages/CircuitTracker'; // New Import
 
 function App () {
   return (
@@ -49,12 +50,20 @@ function App () {
                 </SetupRoute>
               }
             />
-            {/* New Route */}
             <Route
               path="/settings"
               element={
                 <SetupRoute>
                   <Settings />
+                </SetupRoute>
+              }
+            />
+            {/* New Route for Circuit Tracker */}
+            <Route
+              path="/circuit-tracker"
+              element={
+                <SetupRoute>
+                  <CircuitTracker />
                 </SetupRoute>
               }
             />

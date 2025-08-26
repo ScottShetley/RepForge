@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom'; // New Import
 import MainLayout from '../components/layout/MainLayout';
 import WorkoutCalendar from '../components/dashboard/WorkoutCalendar';
 import WorkoutModal from '../components/dashboard/WorkoutModal';
@@ -42,19 +43,24 @@ const Dashboard = () => {
   const renderLastWorkoutSummary = () => {
     if (workouts.length === 0) return null;
     
-    const lastWorkout = workouts[0]; // Since they are sorted newest first
+    const lastWorkout = workouts[0];
     const lastWorkoutDate = new Date(lastWorkout.createdAt.seconds * 1000).toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric'
     });
+    
+    // Distinguish between workout types
+    const workoutName = lastWorkout.workoutType === 'circuit' 
+      ? 'Circuit Training' 
+      : lastWorkout.name;
 
     return (
       <div className="p-4 bg-gray-900 rounded-lg text-center mb-6">
         <p className="text-gray-300">
           Your last session was{' '}
-          <strong className="text-cyan-400">{lastWorkout.name}</strong> on{' '}
+          <strong className="text-cyan-400">{workoutName}</strong> on{' '}
           <strong className="text-cyan-400">{lastWorkoutDate}</strong>.
         </p>
       </div>
@@ -65,38 +71,41 @@ const Dashboard = () => {
     if (workouts.length === 0) {
       return (
         <p className="text-center text-gray-400">
-          No workout sessions saved yet. Go to the 'New Workout' page to save your first session!
+          You haven't logged any workouts yet.
         </p>
       );
     }
-    // We can display a limited list now that we have the calendar
     return (
       <div className="space-y-6">
-        {workouts.slice(0, 5).map(workout => (
-          <div
-            key={workout.id}
-            className="rounded-lg bg-gray-800 p-6 shadow-md hover:bg-gray-700 transition-colors cursor-pointer"
-            onClick={() => setSelectedWorkout(workout)}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-2xl font-bold text-cyan-400">
-                {workout.name}
-              </h3>
-              <span className="text-sm text-gray-400">
-                {workout.createdAt
-                  ? new Date(
-                      workout.createdAt.seconds * 1000
-                    ).toLocaleDateString()
-                  : 'Date unavailable'}
-              </span>
+        {workouts.slice(0, 5).map(workout => {
+          const workoutName = workout.workoutType === 'circuit'
+            ? 'Circuit Training'
+            : workout.name;
+
+          return (
+            <div
+              key={workout.id}
+              className="rounded-lg bg-gray-800 p-6 shadow-md hover:bg-gray-700 transition-colors cursor-pointer"
+              onClick={() => setSelectedWorkout(workout)}
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-2xl font-bold text-cyan-400">
+                  {workoutName}
+                </h3>
+                <span className="text-sm text-gray-400">
+                  {workout.createdAt
+                    ? new Date(
+                        workout.createdAt.seconds * 1000
+                      ).toLocaleDateString()
+                    : 'Date unavailable'}
+                </span>
+              </div>
             </div>
-            {/* We can hide the details here to keep the list clean */}
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
-
 
   const renderContent = () => {
     if (loading) {
@@ -110,7 +119,6 @@ const Dashboard = () => {
     return (
       <>
         {renderLastWorkoutSummary()}
-        {/* --- FIX: Added a wrapper to control calendar size --- */}
         <div className="max-w-md mx-auto">
           <WorkoutCalendar workouts={workouts} onDateClick={setSelectedWorkout} />
         </div>
@@ -124,6 +132,17 @@ const Dashboard = () => {
     <MainLayout>
       <div className="p-4 md:p-6">
         <h2 className="mb-6 text-3xl font-bold text-white">Workout Dashboard</h2>
+        
+        {/* --- NEW: START WORKOUT SECTION --- */}
+        <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Link to="/workout" className="block w-full text-center bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-lg">
+              Start 5x5 Workout
+          </Link>
+          <Link to="/circuit-tracker" className="block w-full text-center bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-lg">
+              Start Circuit Workout
+          </Link>
+        </div>
+        
         {renderContent()}
       </div>
       

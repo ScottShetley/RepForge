@@ -84,6 +84,29 @@ export const updateUserProfile = async (uid, updates) => {
 // --- EXERCISE LIBRARY FUNCTIONS ---
 
 /**
+ * Fetches all exercises.
+ * @returns {Promise<Array>} A promise that resolves to an array of exercise objects.
+ */
+export const getAllExercises = async () => {
+  try {
+    const exercisesCol = collection(db, "exercises");
+    const q = query(exercisesCol);
+    const querySnapshot = await getDocs(q);
+
+    const exercises = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    return exercises;
+  } catch (error) {
+    console.error("Error fetching all exercises: ", error);
+    throw new Error("Could not fetch exercises.");
+  }
+};
+
+
+/**
  * Fetches all exercises of a specific category for the swap modal.
  * @param {string} category - The category of exercises to fetch.
  * @returns {Promise<Array>} A promise that resolves to an array of exercise objects.
@@ -113,6 +136,7 @@ export const saveWorkout = async (userId, workoutData) => {
     const docRef = await addDoc(collection(db, "workout_sessions"), {
       userId: userId,
       ...workoutData,
+      workoutType: '5x5', // Specify workout type
       createdAt: serverTimestamp(),
     });
     console.log("Workout saved with ID: ", docRef.id);
@@ -123,10 +147,33 @@ export const saveWorkout = async (userId, workoutData) => {
   }
 };
 
+/**
+ * NEW: Saves a completed circuit workout session to Firestore.
+ * @param {string} userId - The user's unique ID.
+ * @param {object} workoutData - The circuit workout data (e.g., list of exercises with reps/weight).
+ * @returns {Promise<DocumentReference>} A promise that resolves to the new document reference.
+ */
+export const saveCircuitWorkout = async (userId, workoutData) => {
+  try {
+    const docRef = await addDoc(collection(db, 'workout_sessions'), {
+      userId: userId,
+      ...workoutData,
+      workoutType: 'circuit', // Specify workout type
+      createdAt: serverTimestamp(),
+    });
+    console.log('Circuit workout saved with ID: ', docRef.id);
+    return docRef;
+  } catch (error) {
+    console.error('Error saving circuit workout: ', error);
+    throw new Error('Could not save circuit workout session.');
+  }
+};
+
+
 export const getWorkouts = async (userId) => {
   try {
     const workoutsCol = collection(db, "workout_sessions");
-    const q = query(workoutsCol, where("userId", "==", userId));
+    const q = query(workoutsCol, where("userId", "==", userId), orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
     
     const workouts = querySnapshot.docs.map(doc => ({
@@ -147,6 +194,7 @@ export const getLastWorkout = async (userId) => {
     const q = query(
       workoutsCol,
       where("userId", "==", userId),
+      where("workoutType", "==", "5x5"), // Only get the last 5x5 workout for progression
       orderBy("createdAt", "desc"),
       limit(1)
     );

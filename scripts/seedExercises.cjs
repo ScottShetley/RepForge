@@ -164,6 +164,92 @@ const exercises = [
     bodyPart: 'Core',
     category: 'Accessory',
   },
+
+  // --- NEW: Circuit Training Machines ---
+  {
+    name: 'Circuit Leg Press',
+    coreLift: false,
+    bodyPart: 'Legs',
+    category: 'Circuit',
+  },
+  {
+    name: 'Glute Machine',
+    coreLift: false,
+    bodyPart: 'Legs',
+    category: 'Circuit',
+  },
+  {
+    name: 'Hip Adductor Machine',
+    coreLift: false,
+    bodyPart: 'Legs',
+    category: 'Circuit',
+  },
+  {
+    name: 'Seated Leg Curl Machine',
+    coreLift: false,
+    bodyPart: 'Legs',
+    category: 'Circuit',
+  },
+  {
+    name: 'Leg Extension Machine',
+    coreLift: false,
+    bodyPart: 'Legs',
+    category: 'Circuit',
+  },
+  {
+    name: 'Abdominal Crunch Machine',
+    coreLift: false,
+    bodyPart: 'Core',
+    category: 'Circuit',
+  },
+  {
+    name: 'Seated Row Machine',
+    coreLift: false,
+    bodyPart: 'Back',
+    category: 'Circuit',
+  },
+  {
+    name: 'Lat Pull Down Machine',
+    coreLift: false,
+    bodyPart: 'Back',
+    category: 'Circuit',
+  },
+  {
+    name: 'Shoulder Press Machine',
+    coreLift: false,
+    bodyPart: 'Shoulders',
+    category: 'Circuit',
+  },
+  {
+    name: 'Chest Press Machine',
+    coreLift: false,
+    bodyPart: 'Chest',
+    category: 'Circuit',
+  },
+  {
+    name: 'Tricep Press Machine',
+    coreLift: false,
+    bodyPart: 'Arms',
+    category: 'Circuit',
+  },
+  {
+    name: 'Tricep Extension Machine',
+    coreLift: false,
+    bodyPart: 'Arms',
+    category: 'Circuit',
+  },
+  {
+    name: 'Dependent Curl Machine',
+    coreLift: false,
+    bodyPart: 'Arms',
+    category: 'Circuit',
+  },
+  {
+    name: 'Bicep Curl Machine',
+    coreLift: false,
+    bodyPart: 'Arms',
+    category: 'Circuit',
+  },
 ];
 
 // Asynchronous function to seed the database
