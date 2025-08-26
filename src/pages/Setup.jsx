@@ -1,6 +1,6 @@
 import React, {useState} from 'react';
 import {useNavigate} from 'react-router-dom';
-import {useAuth} from '../hooks/useAuth'; // MODIFIED
+import {useAuth} from '../hooks/useAuth';
 import {
   createInitialUserProgress,
   updateUserProfile,
@@ -10,9 +10,11 @@ const Setup = () => {
   const [weights, setWeights] = useState ({
     squat: '45',
     'bench-press': '45',
-    'barbell-row': '65',
     'overhead-press': '45',
     deadlift: '95',
+    // --- MODIFICATION START ---
+    'seated-cable-row': '45', // Added new core lift
+    // --- MODIFICATION END ---
   });
   const [loading, setLoading] = useState (false);
   const [error, setError] = useState ('');
@@ -48,7 +50,14 @@ const Setup = () => {
 
     try {
       setLoading (true);
-      await createInitialUserProgress (currentUser.uid, baselineWeights);
+      // NOTE: We will need a 'barbell-row' entry for future flexibility if the user wants to swap it back in.
+      // We will add it here, defaulting to a common starting weight.
+      const finalWeights = {
+        ...baselineWeights,
+        'barbell-row': baselineWeights['seated-cable-row'] || 65, // Add barbell-row for tracking
+      };
+
+      await createInitialUserProgress (currentUser.uid, finalWeights);
       await updateUserProfile (currentUser.uid, {isSetupComplete: true});
       await refreshUserProfile ();
       navigate ('/');
@@ -63,9 +72,11 @@ const Setup = () => {
   const liftInputs = [
     {id: 'squat', label: 'Squat'},
     {id: 'bench-press', label: 'Bench Press'},
-    {id: 'barbell-row', label: 'Barbell Row'},
     {id: 'overhead-press', label: 'Overhead Press'},
     {id: 'deadlift', label: 'Deadlift'},
+    // --- MODIFICATION START ---
+    {id: 'seated-cable-row', label: 'Seated Cable Row'},
+    // --- MODIFICATION END ---
   ];
 
   return (

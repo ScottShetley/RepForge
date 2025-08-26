@@ -3,26 +3,26 @@ import { Link } from 'react-router-dom';
 import ExerciseDisplay from './ExerciseDisplay';
 import SubSetWorkout from './SubSetWorkout';
 import ExerciseSwapModal from './ExerciseSwapModal';
-import PlateCalculatorModal from './PlateCalculatorModal'; // New
+import PlateCalculatorModal from './PlateCalculatorModal';
 import { useAuth } from '../../hooks/useAuth';
 import {
   saveWorkout,
   getUserProgress,
   updateUserProgressAfterWorkout,
   getLastWorkout,
-  getUserSettings, // New
+  getUserSettings,
 } from '../../services/firebase';
 import { produce } from 'immer';
 
-// --- FIX: Added the missing workoutTemplates constant ---
 const workoutTemplates = {
   workoutA: {
     id: 'workoutA',
     name: 'Workout A',
     coreLifts: [
-      { exerciseId: 'squat', sets: 5, reps: 5, category: 'Squat' },
-      { exerciseId: 'bench-press', sets: 5, reps: 5, category: 'Bench Press' },
-      { exerciseId: 'seated-cable-row', sets: 5, reps: 5, category: 'Rows' }, // Category updated
+      // --- MODIFICATION: Added 'name' property to all core lifts ---
+      { exerciseId: 'squat', name: 'Squat', sets: 5, reps: 5, category: 'Squat' },
+      { exerciseId: 'bench-press', name: 'Bench Press', sets: 5, reps: 5, category: 'Bench Press' },
+      { exerciseId: 'seated-cable-row', name: 'Seated Cable Row', sets: 5, reps: 5, category: 'Rows' },
     ],
     subSetWorkout: [
       {id: 'acc01', name: 'Dips', sets: 3, reps: '8-12'},
@@ -35,9 +35,9 @@ const workoutTemplates = {
     id: 'workoutB',
     name: 'Workout B',
     coreLifts: [
-      { exerciseId: 'squat', sets: 5, reps: 5, category: 'Squat' },
-      { exerciseId: 'overhead-press', sets: 5, reps: 5, category: 'Overhead Press' },
-      { exerciseId: 'deadlift', sets: 1, reps: 5, category: 'Deadlift' },
+      { exerciseId: 'squat', name: 'Squat', sets: 5, reps: 5, category: 'Squat' },
+      { exerciseId: 'overhead-press', name: 'Overhead Press', sets: 5, reps: 5, category: 'Overhead Press' },
+      { exerciseId: 'deadlift', name: 'Deadlift', sets: 1, reps: 5, category: 'Deadlift' },
     ],
     subSetWorkout: [
       {id: 'acc05', name: 'Pull-ups / Chin-ups', sets: 3, reps: 'To Failure'},
@@ -53,28 +53,26 @@ const DELOAD_THRESHOLD = 3;
 const DELOAD_PERCENTAGE = 0.9;
 
 const WorkoutView = () => {
-  const { currentUser } = useAuth(); // --- FIX: Removed the stray underscore ---
+  const { currentUser } = useAuth();
   const [currentWorkoutId, setCurrentWorkoutId] = useState(null); 
   const [liftProgress, setLiftProgress] = useState(null);
   const [workoutState, setWorkoutState] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   
-  // Settings state
-  const [userSettings, setUserSettings] = useState(null); // New
+  const [userSettings, setUserSettings] = useState(null);
 
-  // Modal states
   const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
   const [exerciseToSwap, setExerciseToSwap] = useState(null);
-  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false); // New
-  const [calculatorWeight, setCalculatorWeight] = useState(0); // New
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
+  const [calculatorWeight, setCalculatorWeight] = useState(0);
 
   const [isSessionComplete, setIsSessionComplete] = useState(false);
 
   useEffect(() => {
     if (currentUser && !liftProgress) {
       const fetchData = async () => {
-        const settings = await getUserSettings(currentUser.uid); // Fetch settings
+        const settings = await getUserSettings(currentUser.uid);
         setUserSettings(settings);
 
         const lastWorkout = await getLastWorkout(currentUser.uid);
@@ -92,22 +90,22 @@ const WorkoutView = () => {
     }
   }, [currentUser, liftProgress]);
 
-  // useEffect for hydrating workoutState
   useEffect(() => {
     if (currentWorkoutId && liftProgress) {
       const template = workoutTemplates[currentWorkoutId];
 
       const hydratedExercises = template.coreLifts.map((lift) => {
         const progress = liftProgress[lift.exerciseId];
-        // FIX: Add a check for missing progress data
+        
         if (!progress) {
           console.warn(`No progress data found for exerciseId: ${lift.exerciseId}. This may be a new or swapped exercise.`);
           return {
             ...lift,
-            progressId: lift.exerciseId, // Use exerciseId as a fallback key
-            name: lift.category, // Use category as a fallback name
-            weight: 45, // Default starting weight
-            increment: 5, // Default increment
+            progressId: lift.exerciseId,
+            // --- FIX: Use the name from the template, not the category ---
+            name: lift.name, 
+            weight: 45,
+            increment: 5,
             completedSets: Array(lift.sets).fill(false),
           };
         }
@@ -136,7 +134,6 @@ const WorkoutView = () => {
     }
   }, [currentWorkoutId, liftProgress]);
 
-  // --- NEW: Calculator Modal Handlers ---
   const handleOpenCalculator = (weight) => {
     setCalculatorWeight(weight);
     setIsCalculatorOpen(true);
@@ -146,7 +143,6 @@ const WorkoutView = () => {
     setIsCalculatorOpen(false);
   };
   
-  // all other handler functions
   const handleSetToggle = (exerciseType, exerciseIndex, setIndex) => {
     setWorkoutState(
       produce(draft => {
@@ -288,7 +284,7 @@ const WorkoutView = () => {
       : 'bg-gray-600 text-gray-300 hover:bg-gray-500';
   };
 
-  if (!workoutState || !userSettings) { // Modified to wait for settings
+  if (!workoutState || !userSettings) {
     return (
       <div className="p-6 text-white text-center">Loading workout data...</div>
     );
@@ -333,7 +329,7 @@ const WorkoutView = () => {
               onSwap={() => handleOpenSwapModal(index)}
               isComplete={isSessionComplete}
               onWeightAdjust={(weightToAdd) => handleWeightAdjust(index, weightToAdd)}
-              onCalculatorOpen={handleOpenCalculator} // New
+              onCalculatorOpen={handleOpenCalculator}
             />
           ))}
         </div>
@@ -375,7 +371,6 @@ const WorkoutView = () => {
         exerciseToSwap={exerciseToSwap}
       />
 
-      {/* New Modal */}
       <PlateCalculatorModal
         isOpen={isCalculatorOpen}
         onClose={handleCloseCalculator}
