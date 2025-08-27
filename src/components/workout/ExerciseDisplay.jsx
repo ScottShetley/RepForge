@@ -3,7 +3,7 @@ import SetLogger from './SetLogger';
 
 const PencilIcon = () => (
   <svg 
-    xmlns="http://www.w.org/2000/svg" 
+    xmlns="http://www.w3.org/2000/svg" 
     viewBox="0 0 20 20" 
     fill="currentColor" 
     className="w-5 h-5"
@@ -56,17 +56,17 @@ const ExerciseDisplay = ({ exercise, onSetToggle, onSwap, isComplete, onWeightAd
     setActiveTimerSet(null);
   };
 
-  // --- NEW: Determine if controls should be disabled ---
   const isDisabled = isComplete || exercise.isLocked;
 
   return (
     <>
-      {/* --- NEW: Add conditional styling for locked state --- */}
       <div className={`rounded-lg bg-gray-700 p-4 shadow-lg transition-all duration-300 ${exercise.isLocked ? 'border-2 border-green-500' : 'border-2 border-transparent'}`}>
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div>
-              <h3 className="text-2xl font-bold text-white">{exercise.name}</h3>
+        {/* --- FIX: Main header layout adjusted for responsiveness --- */}
+        <div className="mb-4 flex items-start justify-between gap-4">
+          {/* --- FIX: Left side now shrinks and wraps text --- */}
+          <div className="flex flex-1 items-center space-x-4 min-w-0">
+            <div className="min-w-0">
+              <h3 className="text-2xl font-bold text-white break-words">{exercise.name}</h3>
               {exercise.increment ? (
                 <p className="font-semibold text-gray-300">
                   {exercise.sets}x{exercise.reps} &bull; {exercise.weight} lbs
@@ -98,9 +98,10 @@ const ExerciseDisplay = ({ exercise, onSetToggle, onSwap, isComplete, onWeightAd
               </div>
             )}
           </div>
+          {/* --- FIX: Swap button will not shrink --- */}
           <button 
             onClick={onSwap}
-            className="rounded-lg bg-gray-600 py-2 px-4 text-sm font-bold text-white hover:bg-gray-500 disabled:bg-gray-500 disabled:cursor-not-allowed"
+            className="rounded-lg bg-gray-600 py-2 px-4 text-sm font-bold text-white hover:bg-gray-500 disabled:bg-gray-500 disabled:cursor-not-allowed flex-shrink-0"
             disabled={isDisabled}
           >
             Swap
@@ -115,7 +116,6 @@ const ExerciseDisplay = ({ exercise, onSetToggle, onSwap, isComplete, onWeightAd
           onTimerStart={handleTimerStart}
           onTimerComplete={handleTimerComplete}
         />
-        {/* --- NEW: "Lock it in" button and "Locked In" badge --- */}
         <div className="mt-4 flex items-center justify-end">
           {exercise.isLocked ? (
             <div className="flex items-center rounded-full bg-green-500/20 px-4 py-2 text-sm font-bold text-green-400">

@@ -14,30 +14,25 @@ const SetLogger = ({
   const sets = Array.from ({length: setsCount}, (_, i) => i);
 
   return (
-    // --- FIX: Remove flex-wrap, adjust gap and justification for responsiveness ---
+    // --- FIX: Use justify-between for a more fluid layout and remove fixed gap ---
     (
-      <div className="flex items-center justify-center sm:justify-start gap-2 sm:gap-3 pt-2">
+      <div className="flex w-full items-center justify-between pt-2">
         {sets.map (setIndex => {
           const isCompleted = completedSets[setIndex];
           const isTimerActiveForThisSet = activeTimerSet === setIndex;
 
-          // --- FIX: Make base style responsive. Smaller on mobile, larger on sm+ screens ---
+          // --- FIX: More aggressive responsive sizing. Mobile-first approach. ---
           const baseStyle =
-            'w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-base sm:text-lg font-semibold transition-colors duration-200';
+            'w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-sm md:text-lg font-semibold transition-colors duration-200';
 
           if (isTimerActiveForThisSet) {
             return (
-              // --- FIX: Make timer container responsive ---
-              (
-                <div
-                  key={setIndex}
-                  className={`${baseStyle} bg-gray-900 w-auto px-1 sm:px-2`}
-                >
-                  <RestTimer
-                    onTimerComplete={() => onTimerComplete (setIndex)}
-                  />
-                </div>
-              )
+              <div
+                key={setIndex}
+                className={`${baseStyle} bg-gray-900 w-auto px-0 md:px-2`}
+              >
+                <RestTimer onTimerComplete={() => onTimerComplete (setIndex)} />
+              </div>
             );
           }
 
@@ -68,7 +63,7 @@ const SetLogger = ({
                 ? <svg
                     xmlns="http://www.w3.org/2000/svg"
                     // --- FIX: Make checkmark icon responsive ---
-                    className="h-5 w-5 sm:h-6 sm:w-6"
+                    className="h-4 w-4 md:h-6 md:w-6"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
