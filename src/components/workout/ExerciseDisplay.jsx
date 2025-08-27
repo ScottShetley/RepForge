@@ -15,7 +15,7 @@ const PencilIcon = () => (
 
 const CalculatorIcon = () => (
   <svg 
-    xmlns="http://www.w.org/2000/svg" 
+    xmlns="http://www.w3.org/2000/svg" 
     viewBox="0 0 20 20" 
     fill="currentColor" 
     className="w-5 h-5"
@@ -60,53 +60,31 @@ const ExerciseDisplay = ({ exercise, onSetToggle, onSwap, isComplete, onWeightAd
 
   return (
     <>
-      <div className={`rounded-lg bg-gray-700 p-4 shadow-lg transition-all duration-300 ${exercise.isLocked ? 'border-2 border-green-500' : 'border-2 border-transparent'}`}>
-        {/* --- FIX: Main header layout adjusted for responsiveness --- */}
-        <div className="mb-4 flex items-start justify-between gap-4">
-          {/* --- FIX: Left side now shrinks and wraps text --- */}
-          <div className="flex flex-1 items-center space-x-4 min-w-0">
-            <div className="min-w-0">
-              <h3 className="text-2xl font-bold text-white break-words">{exercise.name}</h3>
-              {exercise.increment ? (
-                <p className="font-semibold text-gray-300">
-                  {exercise.sets}x{exercise.reps} &bull; {exercise.weight} lbs
-                </p>
-              ) : (
-                 <p className="font-semibold text-gray-300">
-                  {exercise.sets}x{exercise.reps}
-                </p>
-              )}
-            </div>
-            {exercise.increment && (
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setAdjustModalOpen(true)}
-                  className="text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed"
-                  aria-label="Adjust weight"
-                  disabled={isDisabled}
-                >
-                  <PencilIcon />
-                </button>
-                <button
-                  onClick={() => onCalculatorOpen(exercise.weight)}
-                  className="text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed"
-                  aria-label="Plate Calculator"
-                  disabled={isDisabled}
-                >
-                  <CalculatorIcon />
-                </button>
-              </div>
-            )}
-          </div>
-          {/* --- FIX: Swap button will not shrink --- */}
-          <button 
-            onClick={onSwap}
-            className="rounded-lg bg-gray-600 py-2 px-4 text-sm font-bold text-white hover:bg-gray-500 disabled:bg-gray-500 disabled:cursor-not-allowed flex-shrink-0"
-            disabled={isDisabled}
-          >
-            Swap
-          </button>
+      <div className={`relative rounded-lg bg-gray-700 p-4 shadow-lg transition-all duration-300 ${exercise.isLocked ? 'border-2 border-green-500' : 'border-2 border-transparent'}`}>
+        
+        {/* --- NEW: Redesigned Header --- */}
+        <div className="mb-3 pr-20"> {/* Padding right to avoid text flowing under the swap button */}
+          <h3 className="text-xl md:text-2xl font-bold text-white">{exercise.name}</h3>
+          {exercise.increment ? (
+            <p className="font-semibold text-gray-300">
+              {exercise.sets}x{exercise.reps} &bull; {exercise.weight} lbs
+            </p>
+          ) : (
+             <p className="font-semibold text-gray-300">
+              {exercise.sets}x{exercise.reps}
+            </p>
+          )}
         </div>
+
+        {/* --- Swap button is now positioned absolutely --- */}
+        <button 
+          onClick={onSwap}
+          className="absolute top-4 right-4 rounded-lg bg-gray-600 py-2 px-4 text-sm font-bold text-white hover:bg-gray-500 disabled:bg-gray-500 disabled:cursor-not-allowed flex-shrink-0"
+          disabled={isDisabled}
+        >
+          Swap
+        </button>
+
         <SetLogger
           totalSets={exercise.sets}
           completedSets={exercise.completedSets}
@@ -116,7 +94,34 @@ const ExerciseDisplay = ({ exercise, onSetToggle, onSwap, isComplete, onWeightAd
           onTimerStart={handleTimerStart}
           onTimerComplete={handleTimerComplete}
         />
-        <div className="mt-4 flex items-center justify-end">
+
+        {/* --- NEW: Bottom action bar for icons and lock button --- */}
+        <div className="mt-4 flex items-center justify-between">
+          {/* --- Icons are now on the left --- */}
+          {exercise.increment ? (
+             <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setAdjustModalOpen(true)}
+                className="text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed"
+                aria-label="Adjust weight"
+                disabled={isDisabled}
+              >
+                <PencilIcon />
+              </button>
+              <button
+                onClick={() => onCalculatorOpen(exercise.weight)}
+                className="text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed"
+                aria-label="Plate Calculator"
+                disabled={isDisabled}
+              >
+                <CalculatorIcon />
+              </button>
+            </div>
+          ) : (
+            <div /> // Placeholder to keep "Lock it in" button on the right
+          )}
+
+          {/* --- Lock button is on the right --- */}
           {exercise.isLocked ? (
             <div className="flex items-center rounded-full bg-green-500/20 px-4 py-2 text-sm font-bold text-green-400">
               <LockIcon />
