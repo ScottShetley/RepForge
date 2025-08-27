@@ -60,6 +60,8 @@ const WorkoutView = () => {
   const [workoutState, setWorkoutState] = useState(null);
   const [isDraftLoaded, setIsDraftLoaded] = useState(false);
   const [isDiscarding, setIsDiscarding] = useState(false);
+  // --- NEW: State to track if the workout has been modified by the user ---
+  const [isWorkoutDirty, setIsWorkoutDirty] = useState(false);
 
   const workoutStateRef = useRef(workoutState);
   useEffect(() => {
@@ -85,6 +87,7 @@ const WorkoutView = () => {
         const savedWorkout = JSON.parse(savedWorkoutJSON);
         setWorkoutState(savedWorkout);
         setIsDraftLoaded(true);
+        setIsWorkoutDirty(true); // A loaded draft is inherently "dirty"
         console.log("Loaded in-progress workout from local storage.");
       }
     } catch (error) {
@@ -93,11 +96,12 @@ const WorkoutView = () => {
     }
   }, []);
 
+  // --- AUTO-SAVING: Now only saves if the workout is "dirty" ---
   useEffect(() => {
-    if (workoutState && !isSessionComplete && !isDiscarding) {
+    if (workoutState && isWorkoutDirty && !isSessionComplete && !isDiscarding) {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(workoutState));
     }
-  }, [workoutState, isSessionComplete, isDiscarding]);
+  }, [workoutState, isWorkoutDirty, isSessionComplete, isDiscarding]);
 
   useEffect(() => {
     if (isDraftLoaded || (currentUser && liftProgress)) {
@@ -165,6 +169,7 @@ const WorkoutView = () => {
   };
   
   const handleSetToggle = (exerciseType, exerciseIndex, setIndex) => {
+    if (!isWorkoutDirty) setIsWorkoutDirty(true);
     setWorkoutState(
       produce(draft => {
         draft[exerciseType][exerciseIndex].completedSets[setIndex] = !draft[exerciseType][exerciseIndex].completedSets[setIndex];
@@ -173,6 +178,7 @@ const WorkoutView = () => {
   };
   
   const handleLockInExercise = (exerciseType, exerciseIndex) => {
+    if (!isWorkoutDirty) setIsWorkoutDirty(true);
     setWorkoutState(
       produce(draft => {
         draft[exerciseType][exerciseIndex].isLocked = true;
@@ -181,6 +187,7 @@ const WorkoutView = () => {
   };
   
   const handleWeightAdjust = (exerciseIndex, weightToAdd) => {
+    if (!isWorkoutDirty) setIsWorkoutDirty(true);
     setWorkoutState(
       produce(draft => {
         const currentWeight = draft.exercises[exerciseIndex].weight;
@@ -190,6 +197,7 @@ const WorkoutView = () => {
   };
 
   const handleAccessoryWeightChange = (exerciseIndex, newWeight) => {
+    if (!isWorkoutDirty) setIsWorkoutDirty(true);
     setWorkoutState(
       produce(draft => {
         draft.subSetWorkout[exerciseIndex].weight = newWeight;
@@ -198,6 +206,7 @@ const WorkoutView = () => {
   };
 
   const handleIncrementAccessoryWeight = (exerciseIndex) => {
+    if (!isWorkoutDirty) setIsWorkoutDirty(true);
     setWorkoutState(
       produce(draft => {
         const currentWeight = parseFloat(draft.subSetWorkout[exerciseIndex].weight) || 0;
@@ -207,6 +216,7 @@ const WorkoutView = () => {
   };
 
   const handleDecrementAccessoryWeight = (exerciseIndex) => {
+    if (!isWorkoutDirty) setIsWorkoutDirty(true);
     setWorkoutState(
       produce(draft => {
         const currentWeight = parseFloat(draft.subSetWorkout[exerciseIndex].weight) || 0;
@@ -230,6 +240,7 @@ const WorkoutView = () => {
   };
 
   const handleExerciseSelect = (newExercise) => {
+    if (!isWorkoutDirty) setIsWorkoutDirty(true);
     setWorkoutState(produce(draft => {
       const swappedInExercise = {
         exerciseId: newExercise.id, name: newExercise.name, sets: 5, reps: 5, category: newExercise.category,
@@ -296,8 +307,9 @@ const WorkoutView = () => {
       
       setWorkoutState(null);
       setLiftProgress(null);
-      // --- FIX: Reset the isDraftLoaded state to false for a true reset ---
       setIsDraftLoaded(false);
+      // --- NEW: Reset the dirty state on discard ---
+      setIsWorkoutDirty(false);
       setIsSessionComplete(false);
       setSaveMessage('');
     }
