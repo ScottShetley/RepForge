@@ -4,7 +4,8 @@ import MainLayout from '../components/layout/MainLayout';
 import WorkoutCalendar from '../components/dashboard/WorkoutCalendar';
 import WorkoutModal from '../components/dashboard/WorkoutModal';
 import { useAuth } from '../hooks/useAuth';
-import { getWorkouts } from '../services/firebase';
+// --- ADD: Import deleteWorkout ---
+import { getWorkouts, deleteWorkout } from '../services/firebase';
 
 const Dashboard = () => {
   const [workouts, setWorkouts] = useState([]);
@@ -24,10 +25,7 @@ const Dashboard = () => {
       try {
         setLoading(true);
         const userWorkouts = await getWorkouts(currentUser.uid);
-        // Sort workouts by date, newest first
-        userWorkouts.sort(
-          (a, b) => b.createdAt.seconds - a.createdAt.seconds
-        );
+        // This sort is no longer needed here as getWorkouts sorts by default
         setWorkouts(userWorkouts);
       } catch (err) {
         setError('Failed to load workout history.');
@@ -40,6 +38,22 @@ const Dashboard = () => {
     fetchWorkouts();
   }, [currentUser]);
 
+  // --- NEW: Handle workout deletion ---
+  const handleDeleteWorkout = async (workoutId) => {
+    if (!window.confirm("Are you sure you want to delete this workout? This action cannot be undone.")) {
+      return;
+    }
+    try {
+      await deleteWorkout(workoutId);
+      // Update state to remove workout from UI immediately
+      setWorkouts(workouts.filter(w => w.docId !== workoutId));
+    } catch (error) {
+      setError("Failed to delete workout. Please try again.");
+      console.error("Error deleting workout:", error);
+    }
+  };
+
+
   const renderLastWorkoutSummary = () => {
     if (workouts.length === 0) return null;
     
@@ -51,7 +65,6 @@ const Dashboard = () => {
       day: 'numeric'
     });
     
-    // Distinguish between workout types
     const workoutName = lastWorkout.workoutType === 'circuit' 
       ? 'Circuit Training' 
       : lastWorkout.name;
@@ -84,22 +97,44 @@ const Dashboard = () => {
 
           return (
             <div
-              key={workout.id}
-              className="rounded-lg bg-gray-800 p-6 shadow-md hover:bg-gray-700 transition-colors cursor-pointer"
-              onClick={() => setSelectedWorkout(workout)}
+              key={workout.docId}
+              className="rounded-lg bg-gray-800 p-6 shadow-md transition-colors relative"
             >
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-2xl font-bold text-cyan-400">
-                  {workoutName}
-                </h3>
-                <span className="text-sm text-gray-400">
-                  {workout.createdAt
-                    ? new Date(
-                        workout.createdAt.seconds * 1000
-                      ).toLocaleDateString()
-                    : 'Date unavailable'}
-                </span>
+              <div 
+                className="cursor-pointer" 
+                onClick={() => setSelectedWorkout(workout)}
+              >
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="text-2xl font-bold text-cyan-400">
+                    {workoutName}
+                  </h3>
+                  {/* --- FIX: Display date and time --- */}
+                  <span className="text-sm text-gray-400">
+                    {workout.createdAt
+                      ? new Date(
+                          workout.createdAt.seconds * 1000
+                        ).toLocaleString('en-US', {
+                          year: 'numeric',
+                          month: 'numeric',
+                          day: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit'
+                        })
+                      : 'Date unavailable'}
+                  </span>
+                </div>
               </div>
+              {/* --- NEW: Delete button --- */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent modal from opening
+                  handleDeleteWorkout(workout.docId);
+                }}
+                className="absolute top-2 right-2 text-gray-500 hover:text-red-500 transition-colors text-xs font-bold"
+                aria-label="Delete workout"
+              >
+                DELETE
+              </button>
             </div>
           );
         })}
@@ -111,11 +146,9 @@ const Dashboard = () => {
     if (loading) {
       return <p className="text-center text-gray-400">Loading history...</p>;
     }
-
     if (error) {
       return <p className="text-center text-red-400">{error}</p>;
     }
-
     return (
       <>
         {renderLastWorkoutSummary()}
@@ -133,7 +166,6 @@ const Dashboard = () => {
       <div className="p-4 md:p-6">
         <h2 className="mb-6 text-3xl font-bold text-white">Workout Dashboard</h2>
         
-        {/* --- START WORKOUT SECTION --- */}
         <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
           <Link to="/workout" className="block w-full text-center bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-lg">
               Start RepForge Workout

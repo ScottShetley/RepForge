@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import ExerciseDisplay from './ExerciseDisplay';
 import SubSetWorkout from './SubSetWorkout';
@@ -19,7 +19,6 @@ const workoutTemplates = {
     id: 'workoutA',
     name: 'Workout A',
     coreLifts: [
-      // --- MODIFICATION: Added 'name' property to all core lifts ---
       { exerciseId: 'squat', name: 'Squat', sets: 5, reps: 5, category: 'Squat' },
       { exerciseId: 'bench-press', name: 'Bench Press', sets: 5, reps: 5, category: 'Bench Press' },
       { exerciseId: 'seated-cable-row', name: 'Seated Cable Row', sets: 5, reps: 5, category: 'Rows' },
@@ -57,6 +56,12 @@ const WorkoutView = () => {
   const [currentWorkoutId, setCurrentWorkoutId] = useState(null); 
   const [liftProgress, setLiftProgress] = useState(null);
   const [workoutState, setWorkoutState] = useState(null);
+
+  const workoutStateRef = useRef(workoutState);
+  useEffect(() => {
+    workoutStateRef.current = workoutState;
+  }, [workoutState]);
+
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   
@@ -102,7 +107,6 @@ const WorkoutView = () => {
           return {
             ...lift,
             progressId: lift.exerciseId,
-            // --- FIX: Use the name from the template, not the category ---
             name: lift.name, 
             weight: 45,
             increment: 5,
@@ -218,7 +222,6 @@ const WorkoutView = () => {
     handleCloseSwapModal();
   };
 
-
   const handleSaveWorkout = async () => {
     if (!currentUser) {
       setSaveMessage('You must be logged in to save a workout.');
@@ -227,17 +230,21 @@ const WorkoutView = () => {
     setIsSaving(true);
     setSaveMessage('');
 
+    const finalWorkoutState = workoutStateRef.current;
+
+    console.log("Saving workout data:", JSON.stringify(finalWorkoutState, null, 2));
+
     try {
-      await saveWorkout(currentUser.uid, workoutState);
+      await saveWorkout(currentUser.uid, finalWorkoutState);
       
       const progressionPromises = [];
       const newLiftProgressState = { ...liftProgress };
 
-      workoutState.exercises.forEach(exercise => {
+      finalWorkoutState.exercises.forEach(exercise => {
         const progressData = liftProgress[exercise.exerciseId]; 
         if (!progressData) return;
 
-        const wasSuccessful = exercise.completedSets.every(set => set === true);
+        const wasSuccessful = exercise.completedSets.every(set => set === true) && exercise.completedSets.length === exercise.sets;
         
         if (wasSuccessful) {
           const newWeight = progressData.currentWeight + progressData.increment;
@@ -245,7 +252,8 @@ const WorkoutView = () => {
           if (progressData.failureCount > 0) {
             updatePayload.failureCount = 0;
           }
-          progressionPromises.push(updateUserProgressAfterWorkout(progressData.id, updatePayload));
+          // --- FIX: Use the reliable exercise.progressId ---
+          progressionPromises.push(updateUserProgressAfterWorkout(exercise.progressId, updatePayload));
           newLiftProgressState[exercise.exerciseId] = { ...newLiftProgressState[exercise.exerciseId], currentWeight: newWeight, failureCount: 0 };
         } else {
           const currentFailures = progressData.failureCount || 0;
@@ -254,11 +262,13 @@ const WorkoutView = () => {
           if (newFailureCount >= DELOAD_THRESHOLD) {
             const deloadWeight = Math.round((progressData.currentWeight * DELOAD_PERCENTAGE) / 5) * 5;
             const updatePayload = { currentWeight: deloadWeight, failureCount: 0 };
-            progressionPromises.push(updateUserProgressAfterWorkout(progressData.id, updatePayload));
+            // --- FIX: Use the reliable exercise.progressId ---
+            progressionPromises.push(updateUserProgressAfterWorkout(exercise.progressId, updatePayload));
             newLiftProgressState[exercise.exerciseId] = { ...newLiftProgressState[exercise.exerciseId], currentWeight: deloadWeight, failureCount: 0 };
           } else {
             const updatePayload = { failureCount: newFailureCount };
-            progressionPromises.push(updateUserProgressAfterWorkout(progressData.id, updatePayload));
+            // --- FIX: Use the reliable exercise.progressId ---
+            progressionPromises.push(updateUserProgressAfterWorkout(exercise.progressId, updatePayload));
             newLiftProgressState[exercise.exerciseId] = { ...newLiftProgressState[exercise.exerciseId], failureCount: newFailureCount };
           }
         }

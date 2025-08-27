@@ -7,12 +7,10 @@ const WorkoutModal = ({workout, onClose}) => {
     ? new Date (workout.createdAt.seconds * 1000).toLocaleDateString ()
     : 'Date unavailable';
 
-  // Determine the title based on workout type
   const workoutTitle = workout.workoutType === 'circuit'
     ? 'Circuit Training'
     : workout.name;
 
-  // Conditionally render the details based on workout type
   const renderWorkoutDetails = () => {
     if (workout.workoutType === 'circuit') {
       return (
@@ -37,7 +35,6 @@ const WorkoutModal = ({workout, onClose}) => {
       );
     }
 
-    // Default rendering for 5x5 workouts
     return (
       <div className="space-y-4">
         <div>
@@ -45,17 +42,22 @@ const WorkoutModal = ({workout, onClose}) => {
             Core Lifts
           </h4>
           <ul className="space-y-2">
-            {workout.exercises.map ((ex, index) => (
-              <li
-                key={index}
-                className="flex justify-between border-b border-gray-700 py-1 text-gray-300"
-              >
-                <span>{ex.name}</span>
-                <span className="font-mono">
-                  {ex.sets}x{ex.reps} @ {ex.weight}lbs
-                </span>
-              </li>
-            ))}
+            {workout.exercises.map ((ex, index) => {
+              // --- FIX: Calculate completed sets ---
+              const completedSetsCount = ex.completedSets?.filter(Boolean).length || 0;
+              return (
+                <li
+                  key={index}
+                  className="flex justify-between border-b border-gray-700 py-1 text-gray-300"
+                >
+                  <span>{ex.name}</span>
+                  {/* --- FIX: Display actual completed sets --- */}
+                  <span className="font-mono">
+                    {completedSetsCount}x{ex.reps} @ {ex.weight}lbs
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </div>
 
@@ -66,17 +68,22 @@ const WorkoutModal = ({workout, onClose}) => {
               Subset Work
             </h4>
             <ul className="space-y-2">
-              {workout.subSetWorkout.map ((subEx, subIndex) => (
-                <li
-                  key={subIndex}
-                  className="flex justify-between border-b border-gray-700 py-1 text-gray-300"
-                >
-                  <span>{subEx.name}</span>
-                  <span className="font-mono">
-                    {subEx.sets}x{subEx.reps} @ {subEx.weight || '0'}lbs
-                  </span>
-                </li>
-              ))}
+              {workout.subSetWorkout.map ((subEx, subIndex) => {
+                // --- FIX: Calculate completed sets for subsets too ---
+                const completedSetsCount = subEx.completedSets?.filter(Boolean).length || 0;
+                return (
+                  <li
+                    key={subIndex}
+                    className="flex justify-between border-b border-gray-700 py-1 text-gray-300"
+                  >
+                    <span>{subEx.name}</span>
+                    {/* --- FIX: Display actual completed sets for subsets --- */}
+                    <span className="font-mono">
+                      {completedSetsCount}x{subEx.reps} @ {subEx.weight || '0'}lbs
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           </div>}
       </div>
@@ -90,7 +97,7 @@ const WorkoutModal = ({workout, onClose}) => {
     >
       <div
         className="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md m-4 border border-gray-700"
-        onClick={e => e.stopPropagation ()} // Prevent closing when clicking inside the modal
+        onClick={e => e.stopPropagation ()}
       >
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-2xl font-bold text-cyan-400">{workoutTitle}</h3>

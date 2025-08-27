@@ -14,10 +14,10 @@ import {
   orderBy,
   limit,
   setDoc,
-  getDoc
+  getDoc,
+  deleteDoc // --- ADD: Import deleteDoc ---
 } from "firebase/firestore";
 
-// ... (firebaseConfig is unchanged)
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -31,19 +31,14 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// --- NEW: USER PROFILE FUNCTIONS ---
-
-/**
- * Creates a user profile document in Firestore upon signup.
- * @param {object} user - The user object from Firebase Authentication.
- */
+// --- USER PROFILE FUNCTIONS ---
 export const createUserProfile = async (user) => {
   const userRef = doc(db, "users", user.uid);
   try {
     await setDoc(userRef, {
       uid: user.uid,
       email: user.email,
-      isSetupComplete: false, // Default to false
+      isSetupComplete: false,
       createdAt: serverTimestamp(),
     });
   } catch (error) {
@@ -51,11 +46,6 @@ export const createUserProfile = async (user) => {
   }
 };
 
-/**
- * Fetches a user's profile document from Firestore.
- * @param {string} uid - The user's unique ID.
- * @returns {Promise<object|null>} The user profile data or null if not found.
- */
 export const getUserProfile = async (uid) => {
   const userRef = doc(db, "users", uid);
   const docSnap = await getDoc(userRef);
@@ -66,11 +56,6 @@ export const getUserProfile = async (uid) => {
   }
 };
 
-/**
- * Updates a user's profile document.
- * @param {string} uid - The user's unique ID.
- * @param {object} updates - An object with the fields to update.
- */
 export const updateUserProfile = async (uid, updates) => {
     const userRef = doc(db, "users", uid);
     try {
@@ -80,13 +65,7 @@ export const updateUserProfile = async (uid, updates) => {
     }
 };
 
-// ... (Exercise and Workout Session functions are unchanged)
 // --- EXERCISE LIBRARY FUNCTIONS ---
-
-/**
- * Fetches all exercises.
- * @returns {Promise<Array>} A promise that resolves to an array of exercise objects.
- */
 export const getAllExercises = async () => {
   try {
     const exercisesCol = collection(db, "exercises");
@@ -105,12 +84,6 @@ export const getAllExercises = async () => {
   }
 };
 
-
-/**
- * Fetches all exercises of a specific category for the swap modal.
- * @param {string} category - The category of exercises to fetch.
- * @returns {Promise<Array>} A promise that resolves to an array of exercise objects.
- */
 export const getExercisesByCategory = async (category) => {
   try {
     const exercisesCol = collection(db, "exercises");
@@ -129,14 +102,13 @@ export const getExercisesByCategory = async (category) => {
   }
 };
 
-
 // --- WORKOUT SESSION FUNCTIONS ---
 export const saveWorkout = async (userId, workoutData) => {
   try {
     const docRef = await addDoc(collection(db, "workout_sessions"), {
       userId: userId,
       ...workoutData,
-      workoutType: '5x5', // Specify workout type
+      workoutType: '5x5',
       createdAt: serverTimestamp(),
     });
     console.log("Workout saved with ID: ", docRef.id);
@@ -147,18 +119,12 @@ export const saveWorkout = async (userId, workoutData) => {
   }
 };
 
-/**
- * NEW: Saves a completed circuit workout session to Firestore.
- * @param {string} userId - The user's unique ID.
- * @param {object} workoutData - The circuit workout data (e.g., list of exercises with reps/weight).
- * @returns {Promise<DocumentReference>} A promise that resolves to the new document reference.
- */
 export const saveCircuitWorkout = async (userId, workoutData) => {
   try {
     const docRef = await addDoc(collection(db, 'workout_sessions'), {
       userId: userId,
       ...workoutData,
-      workoutType: 'circuit', // Specify workout type
+      workoutType: 'circuit',
       createdAt: serverTimestamp(),
     });
     console.log('Circuit workout saved with ID: ', docRef.id);
@@ -169,15 +135,15 @@ export const saveCircuitWorkout = async (userId, workoutData) => {
   }
 };
 
-
 export const getWorkouts = async (userId) => {
   try {
     const workoutsCol = collection(db, "workout_sessions");
     const q = query(workoutsCol, where("userId", "==", userId), orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
     
+    // --- FIX: Use a non-conflicting property for the unique document ID ---
     const workouts = querySnapshot.docs.map(doc => ({
-      id: doc.id,
+      docId: doc.id, // Use docId for the unique Firestore ID
       ...doc.data()
     }));
     
@@ -188,13 +154,24 @@ export const getWorkouts = async (userId) => {
   }
 };
 
+// --- NEW: Function to delete a workout session ---
+export const deleteWorkout = async (workoutId) => {
+  try {
+    const workoutRef = doc(db, "workout_sessions", workoutId);
+    await deleteDoc(workoutRef);
+  } catch (error) {
+    console.error("Error deleting workout: ", error);
+    throw new Error("Could not delete workout session.");
+  }
+};
+
 export const getLastWorkout = async (userId) => {
   try {
     const workoutsCol = collection(db, "workout_sessions");
     const q = query(
       workoutsCol,
       where("userId", "==", userId),
-      where("workoutType", "==", "5x5"), // Only get the last 5x5 workout for progression
+      where("workoutType", "==", "5x5"),
       orderBy("createdAt", "desc"),
       limit(1)
     );
@@ -213,68 +190,47 @@ export const getLastWorkout = async (userId) => {
   }
 };
 
-
 // --- USER LIFT PROGRESSION FUNCTIONS ---
-
 const defaultLifts = [
   { exerciseId: 'squat', name: 'Squat', currentWeight: 45, increment: 5, failureCount: 0 },
   { exerciseId: 'bench-press', name: 'Bench Press', currentWeight: 45, increment: 5, failureCount: 0 },
   { exerciseId: 'barbell-row', name: 'Barbell Row', currentWeight: 65, increment: 5, failureCount: 0 },
   { exerciseId: 'overhead-press', name: 'Overhead Press', currentWeight: 45, increment: 5, failureCount: 0 },
   { exerciseId: 'deadlift', name: 'Deadlift', currentWeight: 95, increment: 10, failureCount: 0 },
-  // --- NEW: Add Seated Cable Row to defaults for reference ---
   { exerciseId: 'seated-cable-row', name: 'Seated Cable Row', currentWeight: 45, increment: 5, failureCount: 0 },
 ];
 
-/**
- * Creates the initial lift progression documents for a user based on their setup form.
- * @param {string} userId - The user's unique ID.
- * @param {object} baselineWeights - An object with starting weights for each core lift.
- */
-// --- MODIFICATION START ---
-// Rewritten function to fix bugs
 export const createInitialUserProgress = async (userId, baselineWeights) => {
   const progressColRef = collection(db, 'users', userId, 'user_lift_progress');
   const batch = writeBatch(db);
 
-  // Loop through the baseline weights provided from the setup form
   for (const exerciseId in baselineWeights) {
-    // Find the matching default lift to get its name and increment
     const defaultLift = defaultLifts.find(lift => lift.exerciseId === exerciseId);
-    
-    // Create a new document with a SPECIFIC ID to prevent duplicates
     const docRef = doc(progressColRef, exerciseId);
-
     const liftData = {
       userId,
       exerciseId,
       name: defaultLift ? defaultLift.name : exerciseId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
       currentWeight: baselineWeights[exerciseId],
-      increment: defaultLift ? defaultLift.increment : 5, // Default to 5 if not found
+      increment: defaultLift ? defaultLift.increment : 5,
       failureCount: 0,
     };
-    
     batch.set(docRef, liftData);
   }
-
   await batch.commit();
 };
-// --- MODIFICATION END ---
-
 
 export const getUserProgress = async (userId) => {
-  // --- MODIFICATION: Point to the correct sub-collection ---
   const progressCol = collection(db, "users", userId, "user_lift_progress");
-  const q = query(progressCol); // No longer need the where clause for userId
+  const q = query(progressCol);
   const querySnapshot = await getDocs(q);
 
   if (querySnapshot.empty) {
-    return {}; // Return empty object if no progress is found, don't create defaults here
+    return {};
   } else {
     const userProgress = {};
     querySnapshot.docs.forEach(doc => {
       const data = doc.data();
-      // The key is the document ID itself, which we now control
       userProgress[doc.id] = { id: doc.id, ...data }; 
     });
     return userProgress;
@@ -282,7 +238,6 @@ export const getUserProgress = async (userId) => {
 };
 
 export const updateUserProgressAfterWorkout = async (userId, progressId, updates) => {
-  // --- MODIFICATION: Path needs userId to be correct ---
   const docRef = doc(db, "users", userId, "user_lift_progress", progressId);
   try {
     await updateDoc(docRef, updates);
@@ -293,7 +248,6 @@ export const updateUserProgressAfterWorkout = async (userId, progressId, updates
 };
 
 // --- USER SETTINGS FUNCTIONS ---
-
 const defaultSettings = {
   barbellWeight: 45,
   legPressSledWeight: 75,
@@ -351,7 +305,7 @@ export const resetAllProgress = async (userId) => {
   const querySnapshot = await getDocs(progressCol);
   
   if (querySnapshot.empty) {
-    return; // Nothing to reset
+    return;
   }
   
   const batch = writeBatch(db);
@@ -368,6 +322,5 @@ export const resetAllProgress = async (userId) => {
   
   await batch.commit();
 };
-
 
 export default app;
