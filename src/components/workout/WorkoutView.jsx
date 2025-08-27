@@ -14,7 +14,6 @@ import {
 } from '../../services/firebase';
 import { produce } from 'immer';
 
-// --- NEW: Define a key for localStorage ---
 const LOCAL_STORAGE_KEY = 'inProgressRepForgeWorkout';
 
 const workoutTemplates = {
@@ -60,6 +59,8 @@ const WorkoutView = () => {
   const [liftProgress, setLiftProgress] = useState(null);
   const [workoutState, setWorkoutState] = useState(null);
   const [isDraftLoaded, setIsDraftLoaded] = useState(false);
+  // --- NEW: Guard state to prevent race conditions on discard ---
+  const [isDiscarding, setIsDiscarding] = useState(false);
 
   const workoutStateRef = useRef(workoutState);
   useEffect(() => {
@@ -78,7 +79,6 @@ const WorkoutView = () => {
 
   const [isSessionComplete, setIsSessionComplete] = useState(false);
 
-  // --- 1. AUTO-LOADING: This effect runs once on mount to check for a saved draft ---
   useEffect(() => {
     try {
       const savedWorkoutJSON = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -94,14 +94,13 @@ const WorkoutView = () => {
     }
   }, []);
 
-  // --- 2. AUTO-SAVING: This effect saves the workout state whenever it changes ---
+  // --- AUTO-SAVING: This effect is now protected by the guard ---
   useEffect(() => {
-    if (workoutState && !isSessionComplete) {
+    if (workoutState && !isSessionComplete && !isDiscarding) {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(workoutState));
     }
-  }, [workoutState, isSessionComplete]);
+  }, [workoutState, isSessionComplete, isDiscarding]);
 
-  // This effect fetches data for a NEW workout, only if a draft wasn't loaded.
   useEffect(() => {
     if (isDraftLoaded || (currentUser && liftProgress)) {
       return;
@@ -125,7 +124,6 @@ const WorkoutView = () => {
     }
   }, [currentUser, liftProgress, isDraftLoaded]);
   
-  // This effect builds a NEW workout from a template, only if a draft wasn't loaded.
   useEffect(() => {
     if (workoutState || !currentWorkoutId || !liftProgress) {
       return;
@@ -153,7 +151,12 @@ const WorkoutView = () => {
     setWorkoutState({
       id: template.id, name: template.name, exercises: hydratedExercises, subSetWorkout: accessoryExercises,
     });
-  }, [currentWorkoutId, liftProgress, workoutState]);
+    
+    // --- NEW: Lower the guard now that a new workout is ready ---
+    if (isDiscarding) {
+      setIsDiscarding(false);
+    }
+  }, [currentWorkoutId, liftProgress, workoutState, isDiscarding]);
 
   const handleOpenCalculator = (weight) => {
     setCalculatorWeight(weight);
@@ -240,7 +243,6 @@ const WorkoutView = () => {
     handleCloseSwapModal();
   };
 
-  // --- 3. DRAFT CLEARING: Happens on successful save ---
   const handleSaveWorkout = async () => {
     if (!currentUser) {
       setSaveMessage('You must be logged in to save a workout.');
@@ -276,8 +278,8 @@ const WorkoutView = () => {
       });
       
       await Promise.all(progressionPromises);
-      localStorage.removeItem(LOCAL_STORAGE_KEY); // --- CLEAR DRAFT ---
-      setLiftProgress(null); // Force refetch of progress for next session
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+      setLiftProgress(null);
       setIsSessionComplete(true);
       setSaveMessage('Workout Saved! Your next workout will be waiting for you when you return.');
 
@@ -289,9 +291,11 @@ const WorkoutView = () => {
     }
   };
   
-  // --- 4. DISCARD DRAFT: New handler for the discard button ---
   const handleDiscardWorkout = () => {
     if (window.confirm("Are you sure you want to discard your in-progress workout and start a new one?")) {
+      // --- NEW: Set the guard to disable auto-saving immediately ---
+      setIsDiscarding(true);
+      
       localStorage.removeItem(LOCAL_STORAGE_KEY);
       // Reset state to trigger a fresh data load
       setWorkoutState(null);
@@ -308,7 +312,6 @@ const WorkoutView = () => {
 
   if (!workoutState || !userSettings) {
     if (isDraftLoaded && !userSettings) {
-      // If a draft is loaded but settings are not yet, fetch them
       if(currentUser && !userSettings) {
         getUserSettings(currentUser.uid).then(setUserSettings);
       }
@@ -320,7 +323,6 @@ const WorkoutView = () => {
   return (
     <>
       <div className="p-4 md:p-6">
-        {/* --- NEW: Banner for loaded draft --- */}
         {isDraftLoaded && !isSessionComplete && (
           <div className="mb-4 rounded-lg bg-yellow-500/20 p-3 text-center text-sm font-bold text-yellow-300">
             Resuming in-progress workout.
@@ -380,7 +382,6 @@ const WorkoutView = () => {
         <div className="mt-8 border-t border-gray-700 pt-6 text-center">
           {!isSessionComplete ? (
             <div className="flex flex-col items-center gap-4 md:flex-row md:justify-center">
-              {/* --- NEW: Conditionally render Discard button --- */}
               {isDraftLoaded && (
                 <button
                   onClick={handleDiscardWorkout}
