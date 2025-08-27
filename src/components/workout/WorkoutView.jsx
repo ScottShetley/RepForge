@@ -14,6 +14,9 @@ import {
 } from '../../services/firebase';
 import { produce } from 'immer';
 
+// --- NEW: Define a key for localStorage ---
+const LOCAL_STORAGE_KEY = 'inProgressRepForgeWorkout';
+
 const workoutTemplates = {
   workoutA: {
     id: 'workoutA',
@@ -56,6 +59,7 @@ const WorkoutView = () => {
   const [currentWorkoutId, setCurrentWorkoutId] = useState(null); 
   const [liftProgress, setLiftProgress] = useState(null);
   const [workoutState, setWorkoutState] = useState(null);
+  const [isDraftLoaded, setIsDraftLoaded] = useState(false);
 
   const workoutStateRef = useRef(workoutState);
   useEffect(() => {
@@ -74,69 +78,82 @@ const WorkoutView = () => {
 
   const [isSessionComplete, setIsSessionComplete] = useState(false);
 
+  // --- 1. AUTO-LOADING: This effect runs once on mount to check for a saved draft ---
   useEffect(() => {
-    if (currentUser && !liftProgress) {
-      const fetchData = async () => {
-        const settings = await getUserSettings(currentUser.uid);
-        setUserSettings(settings);
+    try {
+      const savedWorkoutJSON = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (savedWorkoutJSON) {
+        const savedWorkout = JSON.parse(savedWorkoutJSON);
+        setWorkoutState(savedWorkout);
+        setIsDraftLoaded(true);
+        console.log("Loaded in-progress workout from local storage.");
+      }
+    } catch (error) {
+      console.error("Failed to load workout from local storage:", error);
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+    }
+  }, []);
 
-        const lastWorkout = await getLastWorkout(currentUser.uid);
-        const nextWorkoutId =
-          !lastWorkout || lastWorkout.id === 'workoutB'
-            ? 'workoutA'
-            : 'workoutB';
-        
-        setCurrentWorkoutId(nextWorkoutId);
+  // --- 2. AUTO-SAVING: This effect saves the workout state whenever it changes ---
+  useEffect(() => {
+    if (workoutState && !isSessionComplete) {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(workoutState));
+    }
+  }, [workoutState, isSessionComplete]);
 
-        const progress = await getUserProgress(currentUser.uid);
-        setLiftProgress(progress);
-      };
+  // This effect fetches data for a NEW workout, only if a draft wasn't loaded.
+  useEffect(() => {
+    if (isDraftLoaded || (currentUser && liftProgress)) {
+      return;
+    }
+
+    const fetchData = async () => {
+      const settings = await getUserSettings(currentUser.uid);
+      setUserSettings(settings);
+
+      const lastWorkout = await getLastWorkout(currentUser.uid);
+      const nextWorkoutId = !lastWorkout || lastWorkout.id === 'workoutB' ? 'workoutA' : 'workoutB';
+      
+      setCurrentWorkoutId(nextWorkoutId);
+
+      const progress = await getUserProgress(currentUser.uid);
+      setLiftProgress(progress);
+    };
+
+    if (currentUser) {
       fetchData();
     }
-  }, [currentUser, liftProgress]);
-
+  }, [currentUser, liftProgress, isDraftLoaded]);
+  
+  // This effect builds a NEW workout from a template, only if a draft wasn't loaded.
   useEffect(() => {
-    if (currentWorkoutId && liftProgress) {
-      const template = workoutTemplates[currentWorkoutId];
+    if (workoutState || !currentWorkoutId || !liftProgress) {
+      return;
+    }
 
-      const hydratedExercises = template.coreLifts.map((lift) => {
-        const progress = liftProgress[lift.exerciseId];
-        
-        if (!progress) {
-          console.warn(`No progress data found for exerciseId: ${lift.exerciseId}. This may be a new or swapped exercise.`);
-          return {
-            ...lift,
-            progressId: lift.exerciseId,
-            name: lift.name, 
-            weight: 45,
-            increment: 5,
-            completedSets: Array(lift.sets).fill(false),
-          };
-        }
+    const template = workoutTemplates[currentWorkoutId];
+    const hydratedExercises = template.coreLifts.map((lift) => {
+      const progress = liftProgress[lift.exerciseId];
+      if (!progress) {
         return {
           ...lift,
-          progressId: progress.id,
-          name: progress.name,
-          weight: progress.currentWeight,
-          increment: progress.increment,
-          completedSets: Array(lift.sets).fill(false),
+          progressId: lift.exerciseId, name: lift.name, weight: 45, increment: 5,
+          completedSets: Array(lift.sets).fill(false), isLocked: false,
         };
-      });
-
-      const accessoryExercises = template.subSetWorkout.map((ex) => ({
-        ...ex,
-        weight: '',
-        completedSets: Array(Number(ex.sets) || 3).fill(false),
-      }));
-
-      setWorkoutState({
-        id: template.id,
-        name: template.name,
-        exercises: hydratedExercises,
-        subSetWorkout: accessoryExercises,
-      });
-    }
-  }, [currentWorkoutId, liftProgress]);
+      }
+      return {
+        ...lift,
+        progressId: progress.id, name: progress.name, weight: progress.currentWeight, increment: progress.increment,
+        completedSets: Array(lift.sets).fill(false), isLocked: false,
+      };
+    });
+    const accessoryExercises = template.subSetWorkout.map((ex) => ({
+      ...ex, weight: '', completedSets: Array(Number(ex.sets) || 3).fill(false), isLocked: false,
+    }));
+    setWorkoutState({
+      id: template.id, name: template.name, exercises: hydratedExercises, subSetWorkout: accessoryExercises,
+    });
+  }, [currentWorkoutId, liftProgress, workoutState]);
 
   const handleOpenCalculator = (weight) => {
     setCalculatorWeight(weight);
@@ -151,6 +168,14 @@ const WorkoutView = () => {
     setWorkoutState(
       produce(draft => {
         draft[exerciseType][exerciseIndex].completedSets[setIndex] = !draft[exerciseType][exerciseIndex].completedSets[setIndex];
+      })
+    );
+  };
+  
+  const handleLockInExercise = (exerciseType, exerciseIndex) => {
+    setWorkoutState(
+      produce(draft => {
+        draft[exerciseType][exerciseIndex].isLocked = true;
       })
     );
   };
@@ -194,9 +219,7 @@ const WorkoutView = () => {
   const handleOpenSwapModal = (exerciseIndex) => {
     const exercise = workoutState.exercises[exerciseIndex];
     setExerciseToSwap({
-      index: exerciseIndex,
-      name: exercise.name,
-      category: exercise.category,
+      index: exerciseIndex, name: exercise.name, category: exercise.category,
     });
     setIsSwapModalOpen(true);
   };
@@ -209,19 +232,15 @@ const WorkoutView = () => {
   const handleExerciseSelect = (newExercise) => {
     setWorkoutState(produce(draft => {
       const swappedInExercise = {
-        exerciseId: newExercise.id,
-        name: newExercise.name,
-        sets: 5, 
-        reps: 5,
-        category: newExercise.category,
-        weight: '',
-        completedSets: Array(5).fill(false),
+        exerciseId: newExercise.id, name: newExercise.name, sets: 5, reps: 5, category: newExercise.category,
+        weight: '', completedSets: Array(5).fill(false), isLocked: false,
       };
       draft.exercises[exerciseToSwap.index] = swappedInExercise;
     }));
     handleCloseSwapModal();
   };
 
+  // --- 3. DRAFT CLEARING: Happens on successful save ---
   const handleSaveWorkout = async () => {
     if (!currentUser) {
       setSaveMessage('You must be logged in to save a workout.');
@@ -231,52 +250,34 @@ const WorkoutView = () => {
     setSaveMessage('');
 
     const finalWorkoutState = workoutStateRef.current;
-
     console.log("Saving workout data:", JSON.stringify(finalWorkoutState, null, 2));
 
     try {
       await saveWorkout(currentUser.uid, finalWorkoutState);
       
       const progressionPromises = [];
-      const newLiftProgressState = { ...liftProgress };
-
       finalWorkoutState.exercises.forEach(exercise => {
         const progressData = liftProgress[exercise.exerciseId]; 
         if (!progressData) return;
-
         const wasSuccessful = exercise.completedSets.every(set => set === true) && exercise.completedSets.length === exercise.sets;
-        
         if (wasSuccessful) {
           const newWeight = progressData.currentWeight + progressData.increment;
-          const updatePayload = { currentWeight: newWeight };
-          if (progressData.failureCount > 0) {
-            updatePayload.failureCount = 0;
-          }
-          // --- FIX: Use the reliable exercise.progressId ---
-          progressionPromises.push(updateUserProgressAfterWorkout(exercise.progressId, updatePayload));
-          newLiftProgressState[exercise.exerciseId] = { ...newLiftProgressState[exercise.exerciseId], currentWeight: newWeight, failureCount: 0 };
+          const updatePayload = { currentWeight: newWeight, failureCount: 0 };
+          progressionPromises.push(updateUserProgressAfterWorkout(currentUser.uid, exercise.progressId, updatePayload));
         } else {
-          const currentFailures = progressData.failureCount || 0;
-          const newFailureCount = currentFailures + 1;
-
+          const newFailureCount = (progressData.failureCount || 0) + 1;
           if (newFailureCount >= DELOAD_THRESHOLD) {
             const deloadWeight = Math.round((progressData.currentWeight * DELOAD_PERCENTAGE) / 5) * 5;
-            const updatePayload = { currentWeight: deloadWeight, failureCount: 0 };
-            // --- FIX: Use the reliable exercise.progressId ---
-            progressionPromises.push(updateUserProgressAfterWorkout(exercise.progressId, updatePayload));
-            newLiftProgressState[exercise.exerciseId] = { ...newLiftProgressState[exercise.exerciseId], currentWeight: deloadWeight, failureCount: 0 };
+            progressionPromises.push(updateUserProgressAfterWorkout(currentUser.uid, exercise.progressId, { currentWeight: deloadWeight, failureCount: 0 }));
           } else {
-            const updatePayload = { failureCount: newFailureCount };
-            // --- FIX: Use the reliable exercise.progressId ---
-            progressionPromises.push(updateUserProgressAfterWorkout(exercise.progressId, updatePayload));
-            newLiftProgressState[exercise.exerciseId] = { ...newLiftProgressState[exercise.exerciseId], failureCount: newFailureCount };
+            progressionPromises.push(updateUserProgressAfterWorkout(currentUser.uid, exercise.progressId, { failureCount: newFailureCount }));
           }
         }
       });
       
       await Promise.all(progressionPromises);
-      setLiftProgress(newLiftProgressState);
-
+      localStorage.removeItem(LOCAL_STORAGE_KEY); // --- CLEAR DRAFT ---
+      setLiftProgress(null); // Force refetch of progress for next session
       setIsSessionComplete(true);
       setSaveMessage('Workout Saved! Your next workout will be waiting for you when you return.');
 
@@ -287,33 +288,56 @@ const WorkoutView = () => {
       setIsSaving(false);
     }
   };
+  
+  // --- 4. DISCARD DRAFT: New handler for the discard button ---
+  const handleDiscardWorkout = () => {
+    if (window.confirm("Are you sure you want to discard your in-progress workout and start a new one?")) {
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+      // Reset state to trigger a fresh data load
+      setWorkoutState(null);
+      setLiftProgress(null);
+      setIsDraftLoaded(false);
+      setIsSessionComplete(false);
+      setSaveMessage('');
+    }
+  };
 
   const getButtonClass = (id) => {
-    return currentWorkoutId === id
-      ? 'bg-cyan-500 text-white'
-      : 'bg-gray-600 text-gray-300 hover:bg-gray-500';
+    return currentWorkoutId === id ? 'bg-cyan-500 text-white' : 'bg-gray-600 text-gray-300 hover:bg-gray-500';
   };
 
   if (!workoutState || !userSettings) {
-    return (
-      <div className="p-6 text-white text-center">Loading workout data...</div>
-    );
+    if (isDraftLoaded && !userSettings) {
+      // If a draft is loaded but settings are not yet, fetch them
+      if(currentUser && !userSettings) {
+        getUserSettings(currentUser.uid).then(setUserSettings);
+      }
+      return <div className="p-6 text-white text-center">Loading user settings...</div>;
+    }
+    return <div className="p-6 text-white text-center">Loading workout data...</div>;
   }
 
   return (
     <>
       <div className="p-4 md:p-6">
+        {/* --- NEW: Banner for loaded draft --- */}
+        {isDraftLoaded && !isSessionComplete && (
+          <div className="mb-4 rounded-lg bg-yellow-500/20 p-3 text-center text-sm font-bold text-yellow-300">
+            Resuming in-progress workout.
+          </div>
+        )}
+
         <div className="mb-6 flex justify-center space-x-4">
           <button
             onClick={() => setCurrentWorkoutId('workoutA')}
-            disabled={isSessionComplete}
+            disabled={isSessionComplete || isDraftLoaded}
             className={`w-full rounded-lg px-6 py-2 font-bold transition-colors duration-200 md:w-auto ${getButtonClass('workoutA')} disabled:bg-gray-500 disabled:cursor-not-allowed`}
           >
             Workout A
           </button>
           <button
             onClick={() => setCurrentWorkoutId('workoutB')}
-            disabled={isSessionComplete}
+            disabled={isSessionComplete || isDraftLoaded}
             className={`w-full rounded-lg px-6 py-2 font-bold transition-colors duration-200 md:w-auto ${getButtonClass('workoutB')} disabled:bg-gray-500 disabled:cursor-not-allowed`}
           >
             Workout B
@@ -323,9 +347,7 @@ const WorkoutView = () => {
           <h2 className="text-3xl font-bold text-white">{workoutState.name}</h2>
           <span className="text-lg text-gray-400">
             {new Date().toLocaleDateString('en-US', {
-              month: 'long',
-              day: 'numeric',
-              year: 'numeric',
+              month: 'long', day: 'numeric', year: 'numeric',
             })}
           </span>
         </div>
@@ -340,6 +362,7 @@ const WorkoutView = () => {
               isComplete={isSessionComplete}
               onWeightAdjust={(weightToAdd) => handleWeightAdjust(index, weightToAdd)}
               onCalculatorOpen={handleOpenCalculator}
+              onLockIn={() => handleLockInExercise('exercises', index)}
             />
           ))}
         </div>
@@ -351,17 +374,29 @@ const WorkoutView = () => {
           onIncrement={handleIncrementAccessoryWeight}
           onDecrement={handleDecrementAccessoryWeight}
           isComplete={isSessionComplete}
+          onLockIn={(exerciseIndex) => handleLockInExercise('subSetWorkout', exerciseIndex)}
         />
 
         <div className="mt-8 border-t border-gray-700 pt-6 text-center">
           {!isSessionComplete ? (
-            <button
-              onClick={handleSaveWorkout}
-              disabled={isSaving}
-              className="w-full rounded-lg bg-indigo-600 px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400 md:w-auto"
-            >
-              {isSaving ? 'Saving...' : 'Finish & Save Workout'}
-            </button>
+            <div className="flex flex-col items-center gap-4 md:flex-row md:justify-center">
+              {/* --- NEW: Conditionally render Discard button --- */}
+              {isDraftLoaded && (
+                <button
+                  onClick={handleDiscardWorkout}
+                  className="w-full rounded-lg bg-gray-600 px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-gray-500 md:w-auto"
+                >
+                  Discard & Start New
+                </button>
+              )}
+              <button
+                onClick={handleSaveWorkout}
+                disabled={isSaving}
+                className="w-full rounded-lg bg-indigo-600 px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400 md:w-auto"
+              >
+                {isSaving ? 'Saving...' : 'Finish & Save Workout'}
+              </button>
+            </div>
           ) : (
             <Link to="/" className="w-full rounded-lg bg-green-600 px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-green-700 md:w-auto">
               Go to Dashboard
@@ -385,7 +420,7 @@ const WorkoutView = () => {
         isOpen={isCalculatorOpen}
         onClose={handleCloseCalculator}
         targetWeight={calculatorWeight}
-        barbellWeight={userSettings.barbellWeight}
+        barbellWeight={userSettings?.barbellWeight}
       />
     </>
   );

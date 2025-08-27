@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import SetLogger from './SetLogger';
 
-// ... (PencilIcon and CalculatorIcon components remain the same) ...
 const PencilIcon = () => (
   <svg 
-    xmlns="http://www.w3.org/2000/svg" 
+    xmlns="http://www.w.org/2000/svg" 
     viewBox="0 0 20 20" 
     fill="currentColor" 
     className="w-5 h-5"
@@ -16,7 +15,7 @@ const PencilIcon = () => (
 
 const CalculatorIcon = () => (
   <svg 
-    xmlns="http://www.w3.org/2000/svg" 
+    xmlns="http://www.w.org/2000/svg" 
     viewBox="0 0 20 20" 
     fill="currentColor" 
     className="w-5 h-5"
@@ -25,12 +24,17 @@ const CalculatorIcon = () => (
   </svg>
 );
 
+const LockIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 mr-2">
+    <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />
+  </svg>
+);
 
-const ExerciseDisplay = ({ exercise, onSetToggle, onSwap, isComplete, onWeightAdjust, onCalculatorOpen }) => {
+
+const ExerciseDisplay = ({ exercise, onSetToggle, onSwap, isComplete, onWeightAdjust, onCalculatorOpen, onLockIn }) => {
   const [adjustModalOpen, setAdjustModalOpen] = useState(false);
   const [weightToAdd, setWeightToAdd] = useState('');
   
-  // --- NEW: State for the timer ---
   const [activeTimerSet, setActiveTimerSet] = useState(null);
 
   const handleAdjust = () => {
@@ -44,20 +48,21 @@ const ExerciseDisplay = ({ exercise, onSetToggle, onSwap, isComplete, onWeightAd
     setAdjustModalOpen(false);
   };
   
-  // --- NEW: Timer logic handlers ---
   const handleTimerStart = (setIndex) => {
-    // A set was just completed, so show the timer options.
     setActiveTimerSet(setIndex);
   };
   
   const handleTimerComplete = () => {
-    // Timer is done, hide the timer options and return to the checkmark.
     setActiveTimerSet(null);
   };
 
+  // --- NEW: Determine if controls should be disabled ---
+  const isDisabled = isComplete || exercise.isLocked;
+
   return (
     <>
-      <div className="rounded-lg bg-gray-700 p-4 shadow-lg">
+      {/* --- NEW: Add conditional styling for locked state --- */}
+      <div className={`rounded-lg bg-gray-700 p-4 shadow-lg transition-all duration-300 ${exercise.isLocked ? 'border-2 border-green-500' : 'border-2 border-transparent'}`}>
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div>
@@ -78,7 +83,7 @@ const ExerciseDisplay = ({ exercise, onSetToggle, onSwap, isComplete, onWeightAd
                   onClick={() => setAdjustModalOpen(true)}
                   className="text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed"
                   aria-label="Adjust weight"
-                  disabled={isComplete}
+                  disabled={isDisabled}
                 >
                   <PencilIcon />
                 </button>
@@ -86,7 +91,7 @@ const ExerciseDisplay = ({ exercise, onSetToggle, onSwap, isComplete, onWeightAd
                   onClick={() => onCalculatorOpen(exercise.weight)}
                   className="text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed"
                   aria-label="Plate Calculator"
-                  disabled={isComplete}
+                  disabled={isDisabled}
                 >
                   <CalculatorIcon />
                 </button>
@@ -96,7 +101,7 @@ const ExerciseDisplay = ({ exercise, onSetToggle, onSwap, isComplete, onWeightAd
           <button 
             onClick={onSwap}
             className="rounded-lg bg-gray-600 py-2 px-4 text-sm font-bold text-white hover:bg-gray-500 disabled:bg-gray-500 disabled:cursor-not-allowed"
-            disabled={isComplete}
+            disabled={isDisabled}
           >
             Swap
           </button>
@@ -105,12 +110,28 @@ const ExerciseDisplay = ({ exercise, onSetToggle, onSwap, isComplete, onWeightAd
           totalSets={exercise.sets}
           completedSets={exercise.completedSets}
           onSetToggle={onSetToggle}
-          isComplete={isComplete}
-          // --- NEW: Props for timer ---
+          isComplete={isDisabled}
           activeTimerSet={activeTimerSet}
           onTimerStart={handleTimerStart}
           onTimerComplete={handleTimerComplete}
         />
+        {/* --- NEW: "Lock it in" button and "Locked In" badge --- */}
+        <div className="mt-4 flex items-center justify-end">
+          {exercise.isLocked ? (
+            <div className="flex items-center rounded-full bg-green-500/20 px-4 py-2 text-sm font-bold text-green-400">
+              <LockIcon />
+              Locked In
+            </div>
+          ) : (
+            <button
+              onClick={onLockIn}
+              disabled={isComplete}
+              className="rounded-lg bg-cyan-600 py-2 px-4 font-bold text-white hover:bg-cyan-500 disabled:bg-gray-500 disabled:cursor-not-allowed"
+            >
+              Lock it in
+            </button>
+          )}
+        </div>
       </div>
 
       {adjustModalOpen && (
