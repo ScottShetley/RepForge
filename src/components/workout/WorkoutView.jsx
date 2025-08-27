@@ -59,7 +59,6 @@ const WorkoutView = () => {
   const [liftProgress, setLiftProgress] = useState(null);
   const [workoutState, setWorkoutState] = useState(null);
   const [isDraftLoaded, setIsDraftLoaded] = useState(false);
-  // --- NEW: Guard state to prevent race conditions on discard ---
   const [isDiscarding, setIsDiscarding] = useState(false);
 
   const workoutStateRef = useRef(workoutState);
@@ -94,7 +93,6 @@ const WorkoutView = () => {
     }
   }, []);
 
-  // --- AUTO-SAVING: This effect is now protected by the guard ---
   useEffect(() => {
     if (workoutState && !isSessionComplete && !isDiscarding) {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(workoutState));
@@ -152,7 +150,6 @@ const WorkoutView = () => {
       id: template.id, name: template.name, exercises: hydratedExercises, subSetWorkout: accessoryExercises,
     });
     
-    // --- NEW: Lower the guard now that a new workout is ready ---
     if (isDiscarding) {
       setIsDiscarding(false);
     }
@@ -293,13 +290,13 @@ const WorkoutView = () => {
   
   const handleDiscardWorkout = () => {
     if (window.confirm("Are you sure you want to discard your in-progress workout and start a new one?")) {
-      // --- NEW: Set the guard to disable auto-saving immediately ---
       setIsDiscarding(true);
       
       localStorage.removeItem(LOCAL_STORAGE_KEY);
-      // Reset state to trigger a fresh data load
+      
       setWorkoutState(null);
       setLiftProgress(null);
+      // --- FIX: Reset the isDraftLoaded state to false for a true reset ---
       setIsDraftLoaded(false);
       setIsSessionComplete(false);
       setSaveMessage('');
