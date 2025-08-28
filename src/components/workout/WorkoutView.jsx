@@ -60,7 +60,6 @@ const WorkoutView = () => {
   const [workoutState, setWorkoutState] = useState(null);
   const [isDraftLoaded, setIsDraftLoaded] = useState(false);
   const [isDiscarding, setIsDiscarding] = useState(false);
-  // --- NEW: State to track if the workout has been modified by the user ---
   const [isWorkoutDirty, setIsWorkoutDirty] = useState(false);
 
   const workoutStateRef = useRef(workoutState);
@@ -87,7 +86,7 @@ const WorkoutView = () => {
         const savedWorkout = JSON.parse(savedWorkoutJSON);
         setWorkoutState(savedWorkout);
         setIsDraftLoaded(true);
-        setIsWorkoutDirty(true); // A loaded draft is inherently "dirty"
+        setIsWorkoutDirty(true); 
         console.log("Loaded in-progress workout from local storage.");
       }
     } catch (error) {
@@ -96,7 +95,6 @@ const WorkoutView = () => {
     }
   }, []);
 
-  // --- AUTO-SAVING: Now only saves if the workout is "dirty" ---
   useEffect(() => {
     if (workoutState && isWorkoutDirty && !isSessionComplete && !isDiscarding) {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(workoutState));
@@ -134,22 +132,31 @@ const WorkoutView = () => {
     const template = workoutTemplates[currentWorkoutId];
     const hydratedExercises = template.coreLifts.map((lift) => {
       const progress = liftProgress[lift.exerciseId];
+      const newSets = Array.from({ length: lift.sets }, () => ({
+        reps: 0,
+        targetReps: lift.reps,
+      }));
+
       if (!progress) {
         return {
           ...lift,
           progressId: lift.exerciseId, name: lift.name, weight: 45, increment: 5,
-          completedSets: Array(lift.sets).fill(false), isLocked: false,
+          sets: newSets, isLocked: false,
         };
       }
       return {
         ...lift,
         progressId: progress.id, name: progress.name, weight: progress.currentWeight, increment: progress.increment,
-        completedSets: Array(lift.sets).fill(false), isLocked: false,
+        sets: newSets, isLocked: false,
       };
     });
+    
     const accessoryExercises = template.subSetWorkout.map((ex) => ({
-      ...ex, weight: '', completedSets: Array(Number(ex.sets) || 3).fill(false), isLocked: false,
+      ...ex, weight: '', 
+      sets: Array.from({ length: Number(ex.sets) || 3 }, () => ({ reps: 0, targetReps: ex.reps })),
+      isLocked: false,
     }));
+    
     setWorkoutState({
       id: template.id, name: template.name, exercises: hydratedExercises, subSetWorkout: accessoryExercises,
     });
@@ -172,7 +179,12 @@ const WorkoutView = () => {
     if (!isWorkoutDirty) setIsWorkoutDirty(true);
     setWorkoutState(
       produce(draft => {
-        draft[exerciseType][exerciseIndex].completedSets[setIndex] = !draft[exerciseType][exerciseIndex].completedSets[setIndex];
+        const set = draft[exerciseType][exerciseIndex].sets[setIndex];
+        if (set.reps < set.targetReps) {
+          set.reps = set.targetReps;
+        } else {
+          set.reps = 0;
+        }
       })
     );
   };
@@ -239,18 +251,25 @@ const WorkoutView = () => {
     setExerciseToSwap(null);
   };
 
+  // --- FIX: Removed duplicate 'sets' key ---
   const handleExerciseSelect = (newExercise) => {
     if (!isWorkoutDirty) setIsWorkoutDirty(true);
     setWorkoutState(produce(draft => {
-      const swappedInExercise = {
-        exerciseId: newExercise.id, name: newExercise.name, sets: 5, reps: 5, category: newExercise.category,
-        weight: '', completedSets: Array(5).fill(false), isLocked: false,
-      };
-      draft.exercises[exerciseToSwap.index] = swappedInExercise;
+        const newSets = Array.from({ length: 5 }, () => ({ reps: 0, targetReps: 5 }));
+        const swappedInExercise = {
+            exerciseId: newExercise.id,
+            name: newExercise.name,
+            reps: 5,
+            category: newExercise.category,
+            weight: '',
+            isLocked: false,
+            sets: newSets,
+        };
+        draft.exercises[exerciseToSwap.index] = swappedInExercise;
     }));
     handleCloseSwapModal();
   };
-
+  
   const handleSaveWorkout = async () => {
     if (!currentUser) {
       setSaveMessage('You must be logged in to save a workout.');
@@ -260,6 +279,7 @@ const WorkoutView = () => {
     setSaveMessage('');
 
     const finalWorkoutState = workoutStateRef.current;
+    // --- DIAGNOSTIC LOG ---
     console.log("Saving workout data:", JSON.stringify(finalWorkoutState, null, 2));
 
     try {
@@ -269,7 +289,9 @@ const WorkoutView = () => {
       finalWorkoutState.exercises.forEach(exercise => {
         const progressData = liftProgress[exercise.exerciseId]; 
         if (!progressData) return;
-        const wasSuccessful = exercise.completedSets.every(set => set === true) && exercise.completedSets.length === exercise.sets;
+        
+        const wasSuccessful = exercise.sets.every(set => set.reps >= set.targetReps);
+        
         if (wasSuccessful) {
           const newWeight = progressData.currentWeight + progressData.increment;
           const updatePayload = { currentWeight: newWeight, failureCount: 0 };
@@ -308,7 +330,6 @@ const WorkoutView = () => {
       setWorkoutState(null);
       setLiftProgress(null);
       setIsDraftLoaded(false);
-      // --- NEW: Reset the dirty state on discard ---
       setIsWorkoutDirty(false);
       setIsSessionComplete(false);
       setSaveMessage('');

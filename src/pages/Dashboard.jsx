@@ -4,16 +4,21 @@ import MainLayout from '../components/layout/MainLayout';
 import WorkoutCalendar from '../components/dashboard/WorkoutCalendar';
 import WorkoutModal from '../components/dashboard/WorkoutModal';
 import { useAuth } from '../hooks/useAuth';
-// --- ADD: Import deleteWorkout ---
 import { getWorkouts, deleteWorkout } from '../services/firebase';
+// --- MODIFIED: Import new calculation logic and component ---
+import { calculatePRs, calculateMonthlyStats } from '../utils/calculations';
+import PRTracker from '../components/dashboard/PRTracker';
+import SummaryStats from '../components/dashboard/SummaryStats';
 
 const Dashboard = () => {
   const [workouts, setWorkouts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const { currentUser } = useAuth();
-
   const [selectedWorkout, setSelectedWorkout] = useState(null);
+  const [personalRecords, setPersonalRecords] = useState({});
+  // --- NEW: State for summary stats ---
+  const [summaryStats, setSummaryStats] = useState({ workoutsThisMonth: 0, totalVolume: 0 });
 
   useEffect(() => {
     const fetchWorkouts = async () => {
@@ -24,9 +29,16 @@ const Dashboard = () => {
 
       try {
         setLoading(true);
-        const userWorkouts = await getWorkouts(currentUser.uid);
-        // This sort is no longer needed here as getWorkouts sorts by default
-        setWorkouts(userWorkouts);
+        const userWorkouts = await getWorkouts(currentUser.uid); 
+        setWorkouts(userWorkouts); 
+
+        const prData = calculatePRs(userWorkouts);
+        setPersonalRecords(prData);
+        
+        // --- NEW: Calculate summary stats after fetching workouts ---
+        const monthlyStats = calculateMonthlyStats(userWorkouts);
+        setSummaryStats(monthlyStats);
+
       } catch (err) {
         setError('Failed to load workout history.');
         console.error(err);
@@ -38,36 +50,41 @@ const Dashboard = () => {
     fetchWorkouts();
   }, [currentUser]);
 
-  // --- NEW: Handle workout deletion ---
-  const handleDeleteWorkout = async (workoutId) => {
-    if (!window.confirm("Are you sure you want to delete this workout? This action cannot be undone.")) {
+  const handleDeleteWorkout = async workoutId => {
+    if (
+      !window.confirm(
+        'Are you sure you want to delete this workout? This action cannot be undone.'
+      )
+    ) {
       return;
     }
     try {
-      await deleteWorkout(workoutId);
+      await deleteWorkout(workoutId); 
       // Update state to remove workout from UI immediately
-      setWorkouts(workouts.filter(w => w.docId !== workoutId));
+      setWorkouts(workouts.filter(w => w.docId !== workoutId)); 
     } catch (error) {
-      setError("Failed to delete workout. Please try again.");
-      console.error("Error deleting workout:", error);
+      setError('Failed to delete workout. Please try again.');
+      console.error('Error deleting workout:', error);
     }
   };
 
-
   const renderLastWorkoutSummary = () => {
-    if (workouts.length === 0) return null;
-    
-    const lastWorkout = workouts[0];
-    const lastWorkoutDate = new Date(lastWorkout.createdAt.seconds * 1000).toLocaleDateString('en-US', {
+    if (workouts.length === 0) return null; 
+
+    const lastWorkout = workouts[0]; 
+    const lastWorkoutDate = new Date(
+      lastWorkout.createdAt.seconds * 1000
+    ).toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
-    });
-    
-    const workoutName = lastWorkout.workoutType === 'circuit' 
-      ? 'Circuit Training' 
-      : lastWorkout.name;
+      day: 'numeric',
+    }); 
+
+    const workoutName =
+      lastWorkout.workoutType === 'circuit'
+        ? 'Circuit Training'
+        : lastWorkout.name; 
 
     return (
       <div className="p-4 bg-gray-900 rounded-lg text-center mb-6">
@@ -81,7 +98,7 @@ const Dashboard = () => {
   };
 
   const renderHistoryList = () => {
-    if (workouts.length === 0) {
+    if (workouts.length === 0) { 
       return (
         <p className="text-center text-gray-400">
           You haven't logged any workouts yet.
@@ -90,25 +107,23 @@ const Dashboard = () => {
     }
     return (
       <div className="space-y-6">
-        {workouts.slice(0, 5).map(workout => {
-          const workoutName = workout.workoutType === 'circuit'
-            ? 'Circuit Training'
-            : workout.name;
+        {workouts.slice(0, 5).map(workout => { 
+          const workoutName =
+            workout.workoutType === 'circuit' ? 'Circuit Training' : workout.name; 
 
           return (
             <div
               key={workout.docId}
               className="rounded-lg bg-gray-800 p-6 shadow-md transition-colors relative"
             >
-              <div 
-                className="cursor-pointer" 
+              <div
+                className="cursor-pointer"
                 onClick={() => setSelectedWorkout(workout)}
               >
                 <div className="mb-4 flex items-center justify-between">
                   <h3 className="text-2xl font-bold text-cyan-400">
                     {workoutName}
                   </h3>
-                  {/* --- FIX: Display date and time --- */}
                   <span className="text-sm text-gray-400">
                     {workout.createdAt
                       ? new Date(
@@ -118,15 +133,14 @@ const Dashboard = () => {
                           month: 'numeric',
                           day: 'numeric',
                           hour: 'numeric',
-                          minute: '2-digit'
+                          minute: '2-digit',
                         })
                       : 'Date unavailable'}
                   </span>
                 </div>
               </div>
-              {/* --- NEW: Delete button --- */}
               <button
-                onClick={(e) => {
+                onClick={e => {
                   e.stopPropagation(); // Prevent modal from opening
                   handleDeleteWorkout(workout.docId);
                 }}
@@ -143,19 +157,24 @@ const Dashboard = () => {
   };
 
   const renderContent = () => {
-    if (loading) {
+    if (loading) { 
       return <p className="text-center text-gray-400">Loading history...</p>;
     }
-    if (error) {
+    if (error) { 
       return <p className="text-center text-red-400">{error}</p>;
     }
     return (
       <>
         {renderLastWorkoutSummary()}
         <div className="max-w-md mx-auto">
-          <WorkoutCalendar workouts={workouts} onDateClick={setSelectedWorkout} />
+          <WorkoutCalendar
+            workouts={workouts}
+            onDateClick={setSelectedWorkout}
+          />
         </div>
-        <h3 className="text-2xl font-bold text-white mt-8 mb-4">Recent Workouts</h3>
+        <h3 className="text-2xl font-bold text-white mt-8 mb-4">
+          Recent Workouts
+        </h3>
         {renderHistoryList()}
       </>
     );
@@ -164,23 +183,40 @@ const Dashboard = () => {
   return (
     <MainLayout>
       <div className="p-4 md:p-6">
-        <h2 className="mb-6 text-3xl font-bold text-white">Workout Dashboard</h2>
-        
+        <h2 className="mb-6 text-3xl font-bold text-white">
+          Workout Dashboard
+        </h2>
+
+        {/* --- NEW: Render the Summary Stats component --- */}
+        <div className="mb-8">
+          <SummaryStats stats={summaryStats} />
+        </div>
+
         <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Link to="/workout" className="block w-full text-center bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-lg">
-              Start RepForge Workout
+          <Link
+            to="/workout"
+            className="block w-full text-center bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-lg"
+          >
+            Start RepForge Workout
           </Link>
-          <Link to="/circuit-tracker" className="block w-full text-center bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-lg">
-              Start Circuit Workout
+          <Link
+            to="/circuit-tracker"
+            className="block w-full text-center bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-lg"
+          >
+            Start Circuit Workout
           </Link>
         </div>
-        
+
+        <div className="mb-8">
+          <PRTracker prs={personalRecords} />
+        </div>
+
         {renderContent()}
       </div>
-      
-      <WorkoutModal 
-        workout={selectedWorkout} 
-        onClose={() => setSelectedWorkout(null)} 
+
+      <WorkoutModal
+        workout={selectedWorkout}
+        onClose={() => setSelectedWorkout(null)}
       />
     </MainLayout>
   );

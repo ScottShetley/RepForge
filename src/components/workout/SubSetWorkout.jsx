@@ -1,22 +1,8 @@
+// FINAL CORRECTED VERSION: 8/28/2025
 import React from 'react';
 import SetLogger from './SetLogger';
 import WeightStepper from './WeightStepper';
-
-// --- NEW: LockIcon for consistency ---
-const LockIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 20 20"
-    fill="currentColor"
-    className="w-5 h-5 mr-2"
-  >
-    <path
-      fillRule="evenodd"
-      d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z"
-      clipRule="evenodd"
-    />
-  </svg>
-);
+import {FaLock} from 'react-icons/fa';
 
 const SubSetWorkout = ({
   exercises,
@@ -24,66 +10,61 @@ const SubSetWorkout = ({
   onWeightChange,
   onIncrement,
   onDecrement,
-  isComplete, // --- ADD: Receive isComplete prop ---
-  onLockIn, // --- ADD: Receive onLockIn prop ---
+  isComplete,
+  onLockIn,
 }) => {
+  // Add a safeguard for undefined or non-array exercises
+  if (!Array.isArray (exercises)) {
+    return null;
+  }
+
   return (
     <div className="mt-8">
-      <h3 className="mb-4 text-2xl font-bold text-gray-300">
-        Subset Workout
-      </h3>
-      <div className="space-y-4 rounded-lg bg-gray-700/50 p-4">
-        {exercises.map ((exercise, exerciseIndex) => {
-          // --- NEW: Determine if controls should be disabled ---
-          const isDisabled = isComplete || exercise.isLocked;
-
+      <h3 className="mb-4 text-2xl font-bold text-white">Subset Workout</h3>
+      <div className="space-y-6">
+        {exercises.map ((exercise, index) => {
+          const isLocked = exercise.isLocked || isComplete;
           return (
             <div
-              key={exercise.id}
-              className={`p-3 rounded-lg transition-all duration-300 ${exercise.isLocked ? 'bg-gray-800/50' : ''}`}
+              key={exercise.id || index} // Use index as a fallback key
+              className={`rounded-lg p-4 shadow-md ${isLocked ? 'bg-gray-800' : 'bg-gray-700'}`}
             >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="font-bold text-white">{exercise.name}</p>
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
+                <div className="mb-2 flex-grow sm:mb-0">
+                  <h4 className="text-lg font-bold text-white">
+                    {exercise.name}
+                  </h4>
                   <p className="text-sm text-gray-400">
-                    {exercise.sets}x{exercise.reps}
+                    {/* This line is corrected to safely access array length */}
+                    {(exercise.sets || []).length}x{exercise.reps}
                   </p>
                 </div>
 
-                <WeightStepper
-                  value={exercise.weight}
-                  onIncrement={() => onIncrement (exerciseIndex)}
-                  onDecrement={() => onDecrement (exerciseIndex)}
-                  onWeightChange={value =>
-                    onWeightChange (exerciseIndex, value)}
-                  // --- NEW: Pass disabled state ---
-                  disabled={isDisabled}
-                />
+                <div className="flex w-full items-center justify-between sm:w-auto sm:justify-end sm:space-x-2">
+                  {!isLocked &&
+                    <WeightStepper
+                      weight={exercise.weight}
+                      onIncrement={() => onIncrement (index)}
+                      onDecrement={() => onDecrement (index)}
+                      onWeightChange={newWeight =>
+                        onWeightChange (index, newWeight)}
+                    />}
+                  <button
+                    onClick={() => onLockIn (index)}
+                    disabled={isLocked}
+                    className="ml-4 rounded bg-cyan-600 px-3 py-1 text-xs font-bold text-white transition-colors hover:bg-cyan-500 disabled:cursor-not-allowed disabled:bg-gray-500"
+                  >
+                    <FaLock className="mr-1 inline" /> Lock it in
+                  </button>
+                </div>
               </div>
-              <div className="mt-3">
+
+              <div className="mt-2">
                 <SetLogger
-                  totalSets={parseInt (exercise.sets, 10)}
-                  completedSets={exercise.completedSets}
-                  onSetToggle={setIndex =>
-                    onSetToggle (exerciseIndex, setIndex)}
-                  // --- NEW: Pass disabled state ---
-                  isComplete={isDisabled}
+                  sets={exercise.sets || []} // Pass empty array if sets are missing
+                  onSetToggle={setIndex => onSetToggle (index, setIndex)}
+                  isComplete={isLocked}
                 />
-              </div>
-              {/* --- NEW: "Lock it in" button and "Locked In" badge --- */}
-              <div className="mt-4 flex items-center justify-end">
-                {exercise.isLocked
-                  ? <div className="flex items-center rounded-full bg-green-500/20 px-4 py-2 text-sm font-bold text-green-400">
-                      <LockIcon />
-                      Locked In
-                    </div>
-                  : <button
-                      onClick={() => onLockIn (exerciseIndex)}
-                      disabled={isComplete}
-                      className="rounded-lg bg-cyan-600/70 py-2 px-4 text-sm font-bold text-white hover:bg-cyan-500/70 disabled:bg-gray-500 disabled:cursor-not-allowed"
-                    >
-                      Lock it in
-                    </button>}
               </div>
             </div>
           );
