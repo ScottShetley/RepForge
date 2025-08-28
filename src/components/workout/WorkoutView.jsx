@@ -4,6 +4,7 @@ import ExerciseDisplay from './ExerciseDisplay';
 import SubSetWorkout from './SubSetWorkout';
 import ExerciseSwapModal from './ExerciseSwapModal';
 import PlateCalculatorModal from './PlateCalculatorModal';
+import AdjustWeightModal from './AdjustWeightModal';
 import { useAuth } from '../../hooks/useAuth';
 import {
   saveWorkout,
@@ -76,6 +77,9 @@ const WorkoutView = () => {
   const [exerciseToSwap, setExerciseToSwap] = useState(null);
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [calculatorWeight, setCalculatorWeight] = useState(0);
+
+  const [isAdjustWeightModalOpen, setIsAdjustWeightModalOpen] = useState(false);
+  const [exerciseToAdjust, setExerciseToAdjust] = useState(null);
 
   const [isSessionComplete, setIsSessionComplete] = useState(false);
 
@@ -198,16 +202,6 @@ const WorkoutView = () => {
     );
   };
   
-  const handleWeightAdjust = (exerciseIndex, weightToAdd) => {
-    if (!isWorkoutDirty) setIsWorkoutDirty(true);
-    setWorkoutState(
-      produce(draft => {
-        const currentWeight = draft.exercises[exerciseIndex].weight;
-        draft.exercises[exerciseIndex].weight = currentWeight + weightToAdd;
-      })
-    );
-  };
-
   const handleAccessoryWeightChange = (exerciseIndex, newWeight) => {
     if (!isWorkoutDirty) setIsWorkoutDirty(true);
     setWorkoutState(
@@ -251,7 +245,6 @@ const WorkoutView = () => {
     setExerciseToSwap(null);
   };
 
-  // --- FIX: Removed duplicate 'sets' key ---
   const handleExerciseSelect = (newExercise) => {
     if (!isWorkoutDirty) setIsWorkoutDirty(true);
     setWorkoutState(produce(draft => {
@@ -269,6 +262,27 @@ const WorkoutView = () => {
     }));
     handleCloseSwapModal();
   };
+
+  const handleOpenAdjustWeightModal = (type, index) => {
+    setExerciseToAdjust({ type, index });
+    setIsAdjustWeightModalOpen(true);
+  };
+
+  const handleCloseAdjustWeightModal = () => {
+    setIsAdjustWeightModalOpen(false);
+    setExerciseToAdjust(null);
+  };
+
+  const handleUpdateWeight = (newWeight) => {
+    if (exerciseToAdjust) {
+      if (!isWorkoutDirty) setIsWorkoutDirty(true);
+      setWorkoutState(
+        produce(draft => {
+          draft[exerciseToAdjust.type][exerciseToAdjust.index].weight = newWeight;
+        })
+      );
+    }
+  };
   
   const handleSaveWorkout = async () => {
     if (!currentUser) {
@@ -279,12 +293,10 @@ const WorkoutView = () => {
     setSaveMessage('');
 
     const finalWorkoutState = workoutStateRef.current;
-    // --- DIAGNOSTIC LOG ---
-    console.log("Saving workout data:", JSON.stringify(finalWorkoutState, null, 2));
-
+    
+    let newPRsAchieved = false;
+    
     try {
-      await saveWorkout(currentUser.uid, finalWorkoutState);
-      
       const progressionPromises = [];
       finalWorkoutState.exercises.forEach(exercise => {
         const progressData = liftProgress[exercise.exerciseId]; 
@@ -293,6 +305,10 @@ const WorkoutView = () => {
         const wasSuccessful = exercise.sets.every(set => set.reps >= set.targetReps);
         
         if (wasSuccessful) {
+          if (exercise.weight > progressData.currentWeight) {
+            newPRsAchieved = true;
+          }
+
           const newWeight = progressData.currentWeight + progressData.increment;
           const updatePayload = { currentWeight: newWeight, failureCount: 0 };
           progressionPromises.push(updateUserProgressAfterWorkout(currentUser.uid, exercise.progressId, updatePayload));
@@ -307,7 +323,12 @@ const WorkoutView = () => {
         }
       });
       
+      const workoutToSave = { ...finalWorkoutState, containsNewPR: newPRsAchieved };
+      console.log("Saving workout data:", JSON.stringify(workoutToSave, null, 2));
+
+      await saveWorkout(currentUser.uid, workoutToSave);
       await Promise.all(progressionPromises);
+
       localStorage.removeItem(LOCAL_STORAGE_KEY);
       setLiftProgress(null);
       setIsSessionComplete(true);
@@ -392,7 +413,7 @@ const WorkoutView = () => {
               onSetToggle={(setIndex) => handleSetToggle('exercises', index, setIndex)}
               onSwap={() => handleOpenSwapModal(index)}
               isComplete={isSessionComplete}
-              onWeightAdjust={(weightToAdd) => handleWeightAdjust(index, weightToAdd)}
+              onAdjustWeightOpen={() => handleOpenAdjustWeightModal('exercises', index)}
               onCalculatorOpen={handleOpenCalculator}
               onLockIn={() => handleLockInExercise('exercises', index)}
             />
@@ -452,6 +473,17 @@ const WorkoutView = () => {
         onClose={handleCloseCalculator}
         targetWeight={calculatorWeight}
         barbellWeight={userSettings?.barbellWeight}
+      />
+
+      <AdjustWeightModal
+        isOpen={isAdjustWeightModalOpen}
+        onClose={handleCloseAdjustWeightModal}
+        onSubmit={handleUpdateWeight}
+        currentWeight={
+          exerciseToAdjust && workoutState
+            ? workoutState[exerciseToAdjust.type][exerciseToAdjust.index].weight
+            : 0
+        }
       />
     </>
   );

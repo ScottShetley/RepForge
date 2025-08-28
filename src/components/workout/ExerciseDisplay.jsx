@@ -1,17 +1,16 @@
 import React from 'react';
 import SetLogger from './SetLogger';
-import { FaCalculator, FaSyncAlt, FaLock } from 'react-icons/fa';
+import { FaCalculator, FaSyncAlt, FaLock, FaPencilAlt } from 'react-icons/fa';
 
 const ExerciseDisplay = ({
   exercise,
   onSetToggle,
   onSwap,
   isComplete,
-  onWeightAdjust,
+  onAdjustWeightOpen, // Changed from onWeightAdjust
   onCalculatorOpen,
   onLockIn,
 }) => {
-  const isSwapped = !exercise.progressId;
   const isLocked = exercise.isLocked || isComplete;
 
   return (
@@ -24,7 +23,6 @@ const ExerciseDisplay = ({
         {/* Exercise Name and Details */}
         <div className="mb-2 sm:mb-0">
           <h3 className="text-xl font-bold text-white">{exercise.name}</h3>
-          {/* --- FIX: Read from the new data structure --- */}
           <p className="text-sm text-gray-300">
             {exercise.sets.length}x{exercise.reps} • {exercise.weight} lbs
           </p>
@@ -34,6 +32,14 @@ const ExerciseDisplay = ({
         <div className="flex items-center space-x-2">
           {!isLocked && (
             <>
+              {/* --- NEW: Adjust Weight Icon Button --- */}
+              <button
+                onClick={onAdjustWeightOpen}
+                className="rounded bg-gray-600 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-gray-500"
+                aria-label="Adjust weight"
+              >
+                <FaPencilAlt className="mr-1 inline" /> Adjust
+              </button>
               <button
                 onClick={onSwap}
                 className="rounded bg-gray-600 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-gray-500"
@@ -60,24 +66,7 @@ const ExerciseDisplay = ({
         </div>
       </div>
 
-      {/* Weight Adjuster for Swapped Exercises */}
-      {isSwapped && !isLocked && (
-        <div className="mt-2 flex items-center justify-center space-x-4">
-          <button
-            onClick={() => onWeightAdjust(-5)}
-            className="rounded-full bg-gray-600 px-3 py-1 text-lg font-bold text-white"
-          >
-            -
-          </button>
-          <span className="text-lg font-semibold text-white">Adjust Weight</span>
-          <button
-            onClick={() => onWeightAdjust(5)}
-            className="rounded-full bg-gray-600 px-3 py-1 text-lg font-bold text-white"
-          >
-            +
-          </button>
-        </div>
-      )}
+      {/* --- REMOVED: Old +/- buttons are gone --- */}
 
       <div className="mt-2">
         <SetLogger

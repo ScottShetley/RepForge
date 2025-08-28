@@ -17,39 +17,37 @@ const Dashboard = () => {
   const [selectedWorkout, setSelectedWorkout] = useState(null);
   const [personalRecords, setPersonalRecords] = useState({});
   const [summaryStats, setSummaryStats] = useState({ workoutsThisMonth: 0, totalVolume: 0 });
-  // --- NEW: State for streak and heatmap data ---
   const [streakData, setStreakData] = useState({ streak: 0, heatmapDates: [] });
 
+  const fetchWorkouts = async () => {
+    if (!currentUser) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const userWorkouts = await getWorkouts(currentUser.uid); 
+      setWorkouts(userWorkouts); 
+
+      const prData = calculatePRs(userWorkouts);
+      setPersonalRecords(prData);
+      
+      const monthlyStats = calculateMonthlyStats(userWorkouts);
+      setSummaryStats(monthlyStats);
+
+      const newStreakData = calculateStreakAndHeatmap(userWorkouts);
+      setStreakData(newStreakData);
+
+    } catch (err) {
+      setError('Failed to load workout history.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchWorkouts = async () => {
-      if (!currentUser) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        const userWorkouts = await getWorkouts(currentUser.uid); 
-        setWorkouts(userWorkouts); 
-
-        const prData = calculatePRs(userWorkouts);
-        setPersonalRecords(prData);
-        
-        const monthlyStats = calculateMonthlyStats(userWorkouts);
-        setSummaryStats(monthlyStats);
-
-        // --- NEW: Calculate streak and heatmap data ---
-        const newStreakData = calculateStreakAndHeatmap(userWorkouts);
-        setStreakData(newStreakData);
-
-      } catch (err) {
-        setError('Failed to load workout history.');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchWorkouts();
   }, [currentUser]);
 
@@ -63,9 +61,8 @@ const Dashboard = () => {
     }
     try {
       await deleteWorkout(workoutId); 
-      // Update state to remove workout from UI immediately
-      const updatedWorkouts = workouts.filter(w => w.docId !== workoutId)
-      setWorkouts(updatedWorkouts); 
+      // Re-fetch workouts to update the entire dashboard state
+      fetchWorkouts();
     } catch (error) {
       setError('Failed to delete workout. Please try again.');
       console.error('Error deleting workout:', error);
@@ -125,8 +122,19 @@ const Dashboard = () => {
                 onClick={() => setSelectedWorkout(workout)}
               >
                 <div className="mb-4 flex items-center justify-between">
+                  {/* --- NEW: Conditionally render PR badge --- */}
                   <h3 className="text-2xl font-bold text-cyan-400">
                     {workoutName}
+                    {workout.containsNewPR && (
+                      <span
+                        className="ml-2 text-xl"
+                        title="New Personal Record!"
+                        role="img"
+                        aria-label="personal record medal"
+                      >
+                        🥇
+                      </span>
+                    )}
                   </h3>
                   <span className="text-sm text-gray-400">
                     {workout.createdAt
@@ -171,7 +179,6 @@ const Dashboard = () => {
       <>
         {renderLastWorkoutSummary()}
         <div className="max-w-md mx-auto">
-          {/* --- MODIFIED: Pass heatmapDates prop to calendar --- */}
           <WorkoutCalendar
             workouts={workouts}
             onDateClick={setSelectedWorkout}
@@ -193,7 +200,6 @@ const Dashboard = () => {
           Workout Dashboard
         </h2>
 
-        {/* --- MODIFIED: Pass streak prop to SummaryStats --- */}
         <div className="mb-8">
           <SummaryStats stats={summaryStats} streak={streakData.streak} />
         </div>
