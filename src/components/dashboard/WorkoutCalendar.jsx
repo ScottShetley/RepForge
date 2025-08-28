@@ -1,13 +1,12 @@
 import React from 'react';
 import Calendar from 'react-calendar';
 
-const WorkoutCalendar = ({workouts, onDateClick}) => {
-  const workoutDates = workouts.map (workout => {
-    return new Date (workout.createdAt.seconds * 1000).toDateString ();
-  });
+const WorkoutCalendar = ({workouts, onDateClick, heatmapDates}) => {
+  const workoutDateSet = new Set (heatmapDates);
 
   const tileClassName = ({date, view}) => {
-    if (view === 'month' && workoutDates.includes (date.toDateString ())) {
+    // Only apply class in month view
+    if (view === 'month' && workoutDateSet.has (date.toDateString ())) {
       return 'workout-day';
     }
     return null;
@@ -15,16 +14,18 @@ const WorkoutCalendar = ({workouts, onDateClick}) => {
 
   const handleDateClick = date => {
     const dateString = date.toDateString ();
-    const workoutForDate = workouts.find (
+    // Find the latest workout for a given date if multiple exist
+    const workoutsForDate = workouts.filter (
       w => new Date (w.createdAt.seconds * 1000).toDateString () === dateString
     );
-    if (workoutForDate) {
-      onDateClick (workoutForDate);
+    if (workoutsForDate.length > 0) {
+      // Assuming the most recent workout is the one to show, which should be first in the sorted list
+      onDateClick (workoutsForDate[0]);
     }
   };
 
   return (
-    <div className="bg-gray-900 p-4 rounded-lg shadow-md mb-8">
+    <div className="bg-gray-800 p-4 rounded-lg shadow-md mb-8">
       <Calendar
         onClickDay={handleDateClick}
         tileClassName={tileClassName}

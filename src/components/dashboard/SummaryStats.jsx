@@ -10,9 +10,10 @@ const StatCard = ({label, value, unit}) => (
   </div>
 );
 
-const SummaryStats = ({stats}) => {
+const SummaryStats = ({stats, streak}) => {
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <StatCard label="Current Streak" value={streak} unit="Weeks" />
       <StatCard label="Workouts This Month" value={stats.workoutsThisMonth} />
       <StatCard
         label="Total Volume Lifted"

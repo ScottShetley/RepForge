@@ -48,7 +48,6 @@ export const calculatePRs = workouts => {
   for (const workout of workouts) {
     if (workout.exercises) {
       for (const exercise of workout.exercises) {
-        // --- FIX: Check if exercise.sets is actually an array before calling .every() ---
         const isSuccessful =
           exercise.sets &&
           Array.isArray (exercise.sets) &&
@@ -89,7 +88,6 @@ export const calculateMonthlyStats = workouts => {
       workout.exercises.forEach (exercise => {
         if (exercise.sets && Array.isArray (exercise.sets)) {
           exercise.sets.forEach (set => {
-            // Ensure reps and weight are numbers before calculating
             if (
               typeof set.reps === 'number' &&
               typeof exercise.weight === 'number'
@@ -107,4 +105,77 @@ export const calculateMonthlyStats = workouts => {
     workoutsThisMonth: monthlyWorkouts.length,
     totalVolume: totalVolume,
   };
+};
+
+/**
+ * Calculates workout streak and heatmap data.
+ * @param {Array} workouts - An array of workout objects from Firestore.
+ * @returns {Object} An object with streak and heatmap data.
+ */
+export const calculateStreakAndHeatmap = workouts => {
+  if (!workouts || workouts.length === 0) {
+    return {streak: 0, heatmapDates: []};
+  }
+
+  const heatmapDates = new Set ();
+  workouts.forEach (w => {
+    if (w.createdAt && w.createdAt.seconds) {
+      heatmapDates.add (new Date (w.createdAt.seconds * 1000).toDateString ());
+    }
+  });
+
+  // Streak Logic
+  const mainWorkouts = workouts
+    .filter (
+      w => w.workoutType !== 'circuit' && w.createdAt && w.createdAt.seconds
+    )
+    .sort ((a, b) => a.createdAt.seconds - b.createdAt.seconds);
+
+  if (mainWorkouts.length === 0) {
+    return {streak: 0, heatmapDates: Array.from (heatmapDates)};
+  }
+
+  const getStartOfWeek = d => {
+    const date = new Date (d);
+    const day = date.getDay ();
+    const diff = date.getDate () - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+    return new Date (date.setDate (diff)).setHours (0, 0, 0, 0);
+  };
+
+  const workoutsByWeek = {};
+  mainWorkouts.forEach (w => {
+    const weekStart = getStartOfWeek (w.createdAt.seconds * 1000);
+    if (!workoutsByWeek[weekStart]) {
+      workoutsByWeek[weekStart] = 0;
+    }
+    workoutsByWeek[weekStart]++;
+  });
+
+  const sortedWeeks = Object.keys (workoutsByWeek).sort ((a, b) => a - b);
+
+  let currentStreak = 0;
+  for (let i = 0; i < sortedWeeks.length; i++) {
+    const week = sortedWeeks[i];
+
+    if (i > 0) {
+      const prevWeek = sortedWeeks[i - 1];
+      const oneWeek = 7 * 24 * 60 * 60 * 1000;
+      if (parseInt (week, 10) - parseInt (prevWeek, 10) > oneWeek) {
+        currentStreak = 0; // Reset streak if weeks are not consecutive
+      }
+    }
+
+    if (workoutsByWeek[week] >= 3) {
+      currentStreak++;
+    } else {
+      // Check if this is the current week. If so, the streak is not broken yet.
+      const now = new Date ();
+      const currentWeekStart = getStartOfWeek (now);
+      if (parseInt (week, 10) < currentWeekStart) {
+        currentStreak = 0;
+      }
+    }
+  }
+
+  return {streak: currentStreak, heatmapDates: Array.from (heatmapDates)};
 };

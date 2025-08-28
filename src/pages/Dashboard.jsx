@@ -5,8 +5,7 @@ import WorkoutCalendar from '../components/dashboard/WorkoutCalendar';
 import WorkoutModal from '../components/dashboard/WorkoutModal';
 import { useAuth } from '../hooks/useAuth';
 import { getWorkouts, deleteWorkout } from '../services/firebase';
-// --- MODIFIED: Import new calculation logic and component ---
-import { calculatePRs, calculateMonthlyStats } from '../utils/calculations';
+import { calculatePRs, calculateMonthlyStats, calculateStreakAndHeatmap } from '../utils/calculations';
 import PRTracker from '../components/dashboard/PRTracker';
 import SummaryStats from '../components/dashboard/SummaryStats';
 
@@ -17,8 +16,9 @@ const Dashboard = () => {
   const { currentUser } = useAuth();
   const [selectedWorkout, setSelectedWorkout] = useState(null);
   const [personalRecords, setPersonalRecords] = useState({});
-  // --- NEW: State for summary stats ---
   const [summaryStats, setSummaryStats] = useState({ workoutsThisMonth: 0, totalVolume: 0 });
+  // --- NEW: State for streak and heatmap data ---
+  const [streakData, setStreakData] = useState({ streak: 0, heatmapDates: [] });
 
   useEffect(() => {
     const fetchWorkouts = async () => {
@@ -35,9 +35,12 @@ const Dashboard = () => {
         const prData = calculatePRs(userWorkouts);
         setPersonalRecords(prData);
         
-        // --- NEW: Calculate summary stats after fetching workouts ---
         const monthlyStats = calculateMonthlyStats(userWorkouts);
         setSummaryStats(monthlyStats);
+
+        // --- NEW: Calculate streak and heatmap data ---
+        const newStreakData = calculateStreakAndHeatmap(userWorkouts);
+        setStreakData(newStreakData);
 
       } catch (err) {
         setError('Failed to load workout history.');
@@ -61,7 +64,8 @@ const Dashboard = () => {
     try {
       await deleteWorkout(workoutId); 
       // Update state to remove workout from UI immediately
-      setWorkouts(workouts.filter(w => w.docId !== workoutId)); 
+      const updatedWorkouts = workouts.filter(w => w.docId !== workoutId)
+      setWorkouts(updatedWorkouts); 
     } catch (error) {
       setError('Failed to delete workout. Please try again.');
       console.error('Error deleting workout:', error);
@@ -167,9 +171,11 @@ const Dashboard = () => {
       <>
         {renderLastWorkoutSummary()}
         <div className="max-w-md mx-auto">
+          {/* --- MODIFIED: Pass heatmapDates prop to calendar --- */}
           <WorkoutCalendar
             workouts={workouts}
             onDateClick={setSelectedWorkout}
+            heatmapDates={streakData.heatmapDates}
           />
         </div>
         <h3 className="text-2xl font-bold text-white mt-8 mb-4">
@@ -187,9 +193,9 @@ const Dashboard = () => {
           Workout Dashboard
         </h2>
 
-        {/* --- NEW: Render the Summary Stats component --- */}
+        {/* --- MODIFIED: Pass streak prop to SummaryStats --- */}
         <div className="mb-8">
-          <SummaryStats stats={summaryStats} />
+          <SummaryStats stats={summaryStats} streak={streakData.streak} />
         </div>
 
         <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
