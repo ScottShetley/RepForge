@@ -5,9 +5,7 @@ import WorkoutCalendar from '../components/dashboard/WorkoutCalendar';
 import WorkoutModal from '../components/dashboard/WorkoutModal';
 import { useAuth } from '../hooks/useAuth';
 import { getWorkouts, deleteWorkout } from '../services/firebase';
-import { calculatePRs, calculateMonthlyStats, calculateStreakAndHeatmap } from '../utils/calculations';
-import PRTracker from '../components/dashboard/PRTracker';
-import SummaryStats from '../components/dashboard/SummaryStats';
+import ProgressCharts from '../components/dashboard/ProgressCharts';
 
 const Dashboard = () => {
   const [workouts, setWorkouts] = useState([]);
@@ -15,39 +13,26 @@ const Dashboard = () => {
   const [error, setError] = useState('');
   const { currentUser } = useAuth();
   const [selectedWorkout, setSelectedWorkout] = useState(null);
-  const [personalRecords, setPersonalRecords] = useState({});
-  const [summaryStats, setSummaryStats] = useState({ workoutsThisMonth: 0, totalVolume: 0 });
-  const [streakData, setStreakData] = useState({ streak: 0, heatmapDates: [] });
-
-  const fetchWorkouts = async () => {
-    if (!currentUser) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const userWorkouts = await getWorkouts(currentUser.uid); 
-      setWorkouts(userWorkouts); 
-
-      const prData = calculatePRs(userWorkouts);
-      setPersonalRecords(prData);
-      
-      const monthlyStats = calculateMonthlyStats(userWorkouts);
-      setSummaryStats(monthlyStats);
-
-      const newStreakData = calculateStreakAndHeatmap(userWorkouts);
-      setStreakData(newStreakData);
-
-    } catch (err) {
-      setError('Failed to load workout history.');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
+    const fetchWorkouts = async () => {
+      if (!currentUser) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const userWorkouts = await getWorkouts(currentUser.uid);
+        setWorkouts(userWorkouts);
+      } catch (err) {
+        setError('Failed to load workout history.');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchWorkouts();
   }, [currentUser]);
 
@@ -60,69 +45,41 @@ const Dashboard = () => {
       return;
     }
     try {
-      await deleteWorkout(workoutId); 
-      // Re-fetch workouts to update the entire dashboard state
-      fetchWorkouts();
+      await deleteWorkout(workoutId);
+      // Re-fetch workouts after deletion
+      const userWorkouts = await getWorkouts(currentUser.uid);
+      setWorkouts(userWorkouts);
     } catch (error) {
       setError('Failed to delete workout. Please try again.');
       console.error('Error deleting workout:', error);
     }
   };
 
-  const renderLastWorkoutSummary = () => {
-    if (workouts.length === 0) return null; 
-
-    const lastWorkout = workouts[0]; 
-    const lastWorkoutDate = new Date(
-      lastWorkout.createdAt.seconds * 1000
-    ).toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    }); 
-
-    const workoutName =
-      lastWorkout.workoutType === 'circuit'
-        ? 'Circuit Training'
-        : lastWorkout.name; 
-
-    return (
-      <div className="p-4 bg-gray-900 rounded-lg text-center mb-6">
-        <p className="text-gray-300">
-          Your last session was{' '}
-          <strong className="text-cyan-400">{workoutName}</strong> on{' '}
-          <strong className="text-cyan-400">{lastWorkoutDate}</strong>.
-        </p>
-      </div>
-    );
-  };
-
   const renderHistoryList = () => {
-    if (workouts.length === 0) { 
+    if (workouts.length === 0) {
       return (
-        <p className="text-center text-gray-400">
-          You haven't logged any workouts yet.
-        </p>
+        <div className="py-8 text-center text-gray-400">
+          <p>You haven't logged any workouts yet.</p>
+          <p className="mt-2">Click "New Workout" to get started!</p>
+        </div>
       );
     }
     return (
       <div className="space-y-6">
-        {workouts.slice(0, 5).map(workout => { 
+        {workouts.slice(0, 5).map(workout => {
           const workoutName =
-            workout.workoutType === 'circuit' ? 'Circuit Training' : workout.name; 
+            workout.workoutType === 'circuit' ? 'Circuit Training' : workout.name;
 
           return (
             <div
               key={workout.docId}
-              className="rounded-lg bg-gray-800 p-6 shadow-md transition-colors relative"
+              className="relative rounded-lg bg-gray-800 p-6 shadow-md transition-colors"
             >
               <div
                 className="cursor-pointer"
                 onClick={() => setSelectedWorkout(workout)}
               >
                 <div className="mb-4 flex items-center justify-between">
-                  {/* --- NEW: Conditionally render PR badge --- */}
                   <h3 className="text-2xl font-bold text-cyan-400">
                     {workoutName}
                     {workout.containsNewPR && (
@@ -153,10 +110,10 @@ const Dashboard = () => {
               </div>
               <button
                 onClick={e => {
-                  e.stopPropagation(); // Prevent modal from opening
+                  e.stopPropagation();
                   handleDeleteWorkout(workout.docId);
                 }}
-                className="absolute top-2 right-2 text-gray-500 hover:text-red-500 transition-colors text-xs font-bold"
+                className="absolute top-2 right-2 text-xs font-bold text-gray-500 transition-colors hover:text-red-500"
                 aria-label="Delete workout"
               >
                 DELETE
@@ -168,24 +125,38 @@ const Dashboard = () => {
     );
   };
 
+  // --- FIX: Create an array of date STRINGS for comparison ---
+  const highlightedDates = workouts.map(w =>
+    new Date(w.createdAt.seconds * 1000).toDateString()
+  );
+
   const renderContent = () => {
-    if (loading) { 
+    if (loading) {
       return <p className="text-center text-gray-400">Loading history...</p>;
     }
-    if (error) { 
+    if (error) {
       return <p className="text-center text-red-400">{error}</p>;
     }
     return (
       <>
-        {renderLastWorkoutSummary()}
-        <div className="max-w-md mx-auto">
-          <WorkoutCalendar
-            workouts={workouts}
-            onDateClick={setSelectedWorkout}
-            heatmapDates={streakData.heatmapDates}
-          />
+        <div className="mb-8">
+          <h3 className="mb-4 text-2xl font-bold text-white">
+            Strength Progression
+          </h3>
+          <ProgressCharts />
         </div>
-        <h3 className="text-2xl font-bold text-white mt-8 mb-4">
+
+        <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="mx-auto max-w-md md:col-span-2">
+            <WorkoutCalendar
+              workouts={workouts}
+              onDateClick={setSelectedWorkout}
+              heatmapDates={highlightedDates}
+            />
+          </div>
+        </div>
+
+        <h3 className="mt-8 mb-4 text-2xl font-bold text-white">
           Recent Workouts
         </h3>
         {renderHistoryList()}
@@ -196,31 +167,16 @@ const Dashboard = () => {
   return (
     <MainLayout>
       <div className="p-4 md:p-6">
-        <h2 className="mb-6 text-3xl font-bold text-white">
-          Workout Dashboard
-        </h2>
-
-        <div className="mb-8">
-          <SummaryStats stats={summaryStats} streak={streakData.streak} />
-        </div>
-
-        <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="mb-6 flex items-baseline justify-between">
+          <h2 className="text-3xl font-bold text-white">
+            Workout Dashboard
+          </h2>
           <Link
-            to="/workout"
-            className="block w-full text-center bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-lg"
+            to="/select-workout"
+            className="font-bold text-cyan-400 hover:text-cyan-300"
           >
-            Start RepForge Workout
+            + New Workout
           </Link>
-          <Link
-            to="/circuit-tracker"
-            className="block w-full text-center bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-lg"
-          >
-            Start Circuit Workout
-          </Link>
-        </div>
-
-        <div className="mb-8">
-          <PRTracker prs={personalRecords} />
         </div>
 
         {renderContent()}
