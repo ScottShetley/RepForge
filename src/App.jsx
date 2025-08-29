@@ -9,7 +9,8 @@ import Workout from './pages/Workout';
 import Instructions from './pages/Instructions';
 import Setup from './pages/Setup';
 import Settings from './pages/Settings';
-import CircuitTracker from './pages/CircuitTracker'; // New Import
+import CircuitTracker from './pages/CircuitTracker';
+import WorkoutSelection from './pages/WorkoutSelection'; // New Import
 
 function App () {
   return (
@@ -31,6 +32,15 @@ function App () {
               element={
                 <SetupRoute>
                   <Dashboard />
+                </SetupRoute>
+              }
+            />
+            {/* New Route for Workout Selection */}
+            <Route
+              path="/select-workout"
+              element={
+                <SetupRoute>
+                  <WorkoutSelection />
                 </SetupRoute>
               }
             />
@@ -58,7 +68,6 @@ function App () {
                 </SetupRoute>
               }
             />
-            {/* New Route for Circuit Tracker */}
             <Route
               path="/circuit-tracker"
               element={
