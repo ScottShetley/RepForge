@@ -7,7 +7,7 @@ const ExerciseDisplay = ({
   onSetToggle,
   onSwap,
   isComplete,
-  onAdjustWeightOpen, // Changed from onWeightAdjust
+  onAdjustWeightOpen,
   onCalculatorOpen,
   onLockIn,
 }) => {
@@ -32,7 +32,6 @@ const ExerciseDisplay = ({
         <div className="flex items-center space-x-2">
           {!isLocked && (
             <>
-              {/* --- NEW: Adjust Weight Icon Button --- */}
               <button
                 onClick={onAdjustWeightOpen}
                 className="rounded bg-gray-600 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-gray-500"
@@ -65,8 +64,6 @@ const ExerciseDisplay = ({
           </button>
         </div>
       </div>
-
-      {/* --- REMOVED: Old +/- buttons are gone --- */}
 
       <div className="mt-2">
         <SetLogger

@@ -1,45 +1,46 @@
 import React, {useState, useEffect, useRef} from 'react';
 
-const REST_DURATIONS = {
-  easy: 90,
-  challenging: 180,
-  failed: 300,
-};
-
-const RestTimer = ({onTimerComplete}) => {
-  const [timeLeft, setTimeLeft] = useState (null);
-  const [timerActive, setTimerActive] = useState (false);
+const RestTimer = ({isVisible, onStart, onClose}) => {
+  const [timeLeft, setTimeLeft] = useState (0);
+  const [isCounting, setIsCounting] = useState (false);
   const intervalRef = useRef (null);
   const audioRef = useRef (null);
 
+  // Preload the audio file
   useEffect (() => {
-    // Preload the audio file
     audioRef.current = new Audio ('/timer-complete.mp3');
   }, []);
 
+  // Countdown logic
   useEffect (
     () => {
-      if (timerActive && timeLeft > 0) {
+      if (isCounting && timeLeft > 0) {
         intervalRef.current = setInterval (() => {
           setTimeLeft (prev => prev - 1);
         }, 1000);
-      } else if (timeLeft === 0) {
-        setTimerActive (false);
+      } else if (timeLeft === 0 && isCounting) {
+        setIsCounting (false);
         if (audioRef.current) {
           audioRef.current.play ();
         }
-        onTimerComplete (); // Notify parent that timer is done
+        onClose (); // Close the timer UI when done
       }
       return () => clearInterval (intervalRef.current);
     },
-    [timerActive, timeLeft, onTimerComplete]
+    [isCounting, timeLeft, onClose]
   );
 
-  const startTimer = difficulty => {
+  const handleStartTimer = duration => {
     clearInterval (intervalRef.current);
-    const duration = REST_DURATIONS[difficulty];
     setTimeLeft (duration);
-    setTimerActive (true);
+    setIsCounting (true);
+    onStart (duration); // Notify parent that timer has started
+  };
+
+  const handleStopTimer = () => {
+    clearInterval (intervalRef.current);
+    setIsCounting (false);
+    onClose ();
   };
 
   const formatTime = seconds => {
@@ -48,34 +49,54 @@ const RestTimer = ({onTimerComplete}) => {
     return `${minutes}:${remainingSeconds.toString ().padStart (2, '0')}`;
   };
 
-  if (timerActive) {
-    return (
-      <div className="flex-1 text-center font-mono text-xl text-cyan-400">
-        {formatTime (timeLeft)}
-      </div>
-    );
+  if (!isVisible) {
+    return null;
   }
 
   return (
-    <div className="flex-1 flex justify-center items-center space-x-2">
-      <button
-        onClick={() => startTimer ('easy')}
-        className="text-xs font-semibold bg-green-600 hover:bg-green-500 rounded px-2 py-1"
-      >
-        1:30
-      </button>
-      <button
-        onClick={() => startTimer ('challenging')}
-        className="text-xs font-semibold bg-yellow-600 hover:bg-yellow-500 rounded px-2 py-1"
-      >
-        3:00
-      </button>
-      <button
-        onClick={() => startTimer ('failed')}
-        className="text-xs font-semibold bg-red-600 hover:bg-red-500 rounded px-2 py-1"
-      >
-        5:00
-      </button>
+    <div className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-center bg-gray-900/90 p-4 shadow-lg backdrop-blur-sm">
+      {!isCounting
+        ? <div className="flex w-full max-w-md items-center justify-between">
+            <span className="text-lg font-bold text-white">Start Rest:</span>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => handleStartTimer (90)}
+                className="rounded-lg bg-green-600 px-4 py-2 font-bold text-white transition-transform hover:scale-105"
+              >
+                1:30
+              </button>
+              <button
+                onClick={() => handleStartTimer (180)}
+                className="rounded-lg bg-yellow-500 px-4 py-2 font-bold text-white transition-transform hover:scale-105"
+              >
+                3:00
+              </button>
+              <button
+                onClick={() => handleStartTimer (300)}
+                className="rounded-lg bg-red-600 px-4 py-2 font-bold text-white transition-transform hover:scale-105"
+              >
+                5:00
+              </button>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-2xl text-gray-400 hover:text-white"
+            >
+              &times;
+            </button>
+          </div>
+        : <div className="flex w-full max-w-md items-center justify-between">
+            <span className="text-lg font-bold text-white">Resting...</span>
+            <span className="font-mono text-4xl text-cyan-400">
+              {formatTime (timeLeft)}
+            </span>
+            <button
+              onClick={handleStopTimer}
+              className="rounded-lg bg-gray-600 px-4 py-2 font-bold text-white transition-colors hover:bg-gray-500"
+            >
+              Skip
+            </button>
+          </div>}
     </div>
   );
 };

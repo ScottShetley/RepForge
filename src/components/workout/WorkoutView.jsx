@@ -5,6 +5,7 @@ import SubSetWorkout from './SubSetWorkout';
 import ExerciseSwapModal from './ExerciseSwapModal';
 import PlateCalculatorModal from './PlateCalculatorModal';
 import AdjustWeightModal from './AdjustWeightModal';
+import RestTimer from './RestTimer'; // Import the RestTimer
 import { useAuth } from '../../hooks/useAuth';
 import {
   saveWorkout,
@@ -17,6 +18,7 @@ import { produce } from 'immer';
 
 const LOCAL_STORAGE_KEY = 'inProgressRepForgeWorkout';
 
+// Workout templates remain the same...
 const workoutTemplates = {
   workoutA: {
     id: 'workoutA',
@@ -54,33 +56,34 @@ const DELOAD_THRESHOLD = 3;
 
 const WorkoutView = () => {
   const { currentUser } = useAuth();
+  // ... existing state variables
   const [currentWorkoutId, setCurrentWorkoutId] = useState(null); 
   const [liftProgress, setLiftProgress] = useState(null);
   const [workoutState, setWorkoutState] = useState(null);
   const [isDraftLoaded, setIsDraftLoaded] = useState(false);
   const [isDiscarding, setIsDiscarding] = useState(false);
   const [isWorkoutDirty, setIsWorkoutDirty] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
+  const [userSettings, setUserSettings] = useState(null);
+  const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
+  const [exerciseToSwap, setExerciseToSwap] = useState(null);
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
+  const [calculatorWeight, setCalculatorWeight] = useState(0);
+  const [isAdjustWeightModalOpen, setIsAdjustWeightModalOpen] = useState(false);
+  const [exerciseToAdjust, setExerciseToAdjust] = useState(null);
+  const [isSessionComplete, setIsSessionComplete] = useState(false);
+
+  // --- NEW: State for Rest Timer ---
+  const [isTimerVisible, setIsTimerVisible] = useState(false);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
 
   const workoutStateRef = useRef(workoutState);
   useEffect(() => {
     workoutStateRef.current = workoutState;
   }, [workoutState]);
-
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState('');
   
-  const [userSettings, setUserSettings] = useState(null);
-
-  const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
-  const [exerciseToSwap, setExerciseToSwap] = useState(null);
-  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
-  const [calculatorWeight, setCalculatorWeight] = useState(0);
-
-  const [isAdjustWeightModalOpen, setIsAdjustWeightModalOpen] = useState(false);
-  const [exerciseToAdjust, setExerciseToAdjust] = useState(null);
-
-  const [isSessionComplete, setIsSessionComplete] = useState(false);
-
+  // ... existing useEffects
   useEffect(() => {
     try {
       const savedWorkoutJSON = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -168,15 +171,8 @@ const WorkoutView = () => {
     }
   }, [currentWorkoutId, liftProgress, workoutState, isDiscarding]);
 
-  const handleOpenCalculator = (weight) => {
-    setCalculatorWeight(weight);
-    setIsCalculatorOpen(true);
-  };
 
-  const handleCloseCalculator = () => {
-    setIsCalculatorOpen(false);
-  };
-  
+  // --- MODIFIED: handleSetToggle to show timer ---
   const handleSetToggle = (exerciseType, exerciseIndex, setIndex) => {
     if (!isWorkoutDirty) setIsWorkoutDirty(true);
     setWorkoutState(
@@ -189,6 +185,31 @@ const WorkoutView = () => {
         }
       })
     );
+    // Show timer options only for core lifts and if no timer is already running
+    if (exerciseType === 'exercises' && !isTimerRunning) {
+      setIsTimerVisible(true);
+    }
+  };
+  
+  // --- NEW: Timer Handler Functions ---
+  const handleStartTimer = () => {
+    setIsTimerVisible(false);
+    setIsTimerRunning(true);
+  };
+  
+  const handleCloseTimer = () => {
+    setIsTimerVisible(false);
+    setIsTimerRunning(false);
+  };
+
+  // ... existing handler functions
+  const handleOpenCalculator = (weight) => {
+    setCalculatorWeight(weight);
+    setIsCalculatorOpen(true);
+  };
+
+  const handleCloseCalculator = () => {
+    setIsCalculatorOpen(false);
   };
   
   const handleLockInExercise = (exerciseType, exerciseIndex) => {
@@ -358,9 +379,6 @@ const WorkoutView = () => {
     }
   };
 
-  const getButtonClass = (id) => {
-    return currentWorkoutId === id ? 'bg-cyan-500 text-white' : 'bg-gray-600 text-gray-300 hover:bg-gray-500';
-  };
 
   if (!workoutState || !userSettings) {
     if (isDraftLoaded && !userSettings) {
@@ -371,10 +389,15 @@ const WorkoutView = () => {
     }
     return <div className="p-6 text-center text-white">Loading workout data...</div>;
   }
+  
+  const getButtonClass = (id) => {
+    return currentWorkoutId === id ? 'bg-cyan-500 text-white' : 'bg-gray-600 text-gray-300 hover:bg-gray-500';
+  };
 
   return (
     <>
-      <div className="p-4 md:p-6">
+      <div className="p-4 md:p-6 pb-24"> {/* Added padding-bottom to prevent overlap with timer */}
+        {/* ... existing JSX ... */}
         {isDraftLoaded && !isSessionComplete && (
           <div className="mb-4 rounded-lg bg-yellow-500/20 p-3 text-center text-sm font-bold text-yellow-300">
             Resuming in-progress workout.
@@ -462,6 +485,7 @@ const WorkoutView = () => {
         </div>
       </div>
       
+      {/* ... existing modals ... */}
       <ExerciseSwapModal
         isOpen={isSwapModalOpen}
         onClose={handleCloseSwapModal}
@@ -485,6 +509,13 @@ const WorkoutView = () => {
             ? workoutState[exerciseToAdjust.type][exerciseToAdjust.index].weight
             : 0
         }
+      />
+
+      {/* --- NEW: Render RestTimer --- */}
+      <RestTimer 
+        isVisible={isTimerVisible || isTimerRunning}
+        onStart={handleStartTimer}
+        onClose={handleCloseTimer}
       />
     </>
   );
