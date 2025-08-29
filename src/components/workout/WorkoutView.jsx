@@ -50,9 +50,7 @@ const workoutTemplates = {
   },
 };
 
-const WEIGHT_INCREMENT_STEP = 5;
 const DELOAD_THRESHOLD = 3;
-const DELOAD_PERCENTAGE = 0.9;
 
 const WorkoutView = () => {
   const { currentUser } = useAuth();
@@ -216,7 +214,7 @@ const WorkoutView = () => {
     setWorkoutState(
       produce(draft => {
         const currentWeight = parseFloat(draft.subSetWorkout[exerciseIndex].weight) || 0;
-        draft.subSetWorkout[exerciseIndex].weight = currentWeight + WEIGHT_INCREMENT_STEP;
+        draft.subSetWorkout[exerciseIndex].weight = currentWeight + (userSettings?.weightIncrement || 5);
       })
     );
   };
@@ -226,7 +224,7 @@ const WorkoutView = () => {
     setWorkoutState(
       produce(draft => {
         const currentWeight = parseFloat(draft.subSetWorkout[exerciseIndex].weight) || 0;
-        const newWeight = currentWeight - WEIGHT_INCREMENT_STEP;
+        const newWeight = currentWeight - (userSettings?.weightIncrement || 5);
         draft.subSetWorkout[exerciseIndex].weight = newWeight > 0 ? newWeight : 0;
       })
     );
@@ -285,8 +283,8 @@ const WorkoutView = () => {
   };
   
   const handleSaveWorkout = async () => {
-    if (!currentUser) {
-      setSaveMessage('You must be logged in to save a workout.');
+    if (!currentUser || !userSettings) {
+      setSaveMessage('You must be logged in and settings must be loaded.');
       return;
     }
     setIsSaving(true);
@@ -298,6 +296,9 @@ const WorkoutView = () => {
     
     try {
       const progressionPromises = [];
+      const { weightIncrement, deloadPercentage } = userSettings;
+      const deloadMultiplier = 1 - (deloadPercentage / 100);
+
       finalWorkoutState.exercises.forEach(exercise => {
         const progressData = liftProgress[exercise.exerciseId]; 
         if (!progressData) return;
@@ -309,13 +310,13 @@ const WorkoutView = () => {
             newPRsAchieved = true;
           }
 
-          const newWeight = progressData.currentWeight + progressData.increment;
+          const newWeight = progressData.currentWeight + weightIncrement;
           const updatePayload = { currentWeight: newWeight, failureCount: 0 };
           progressionPromises.push(updateUserProgressAfterWorkout(currentUser.uid, exercise.progressId, updatePayload));
         } else {
           const newFailureCount = (progressData.failureCount || 0) + 1;
           if (newFailureCount >= DELOAD_THRESHOLD) {
-            const deloadWeight = Math.round((progressData.currentWeight * DELOAD_PERCENTAGE) / 5) * 5;
+            const deloadWeight = Math.round((progressData.currentWeight * deloadMultiplier) / 5) * 5;
             progressionPromises.push(updateUserProgressAfterWorkout(currentUser.uid, exercise.progressId, { currentWeight: deloadWeight, failureCount: 0 }));
           } else {
             progressionPromises.push(updateUserProgressAfterWorkout(currentUser.uid, exercise.progressId, { failureCount: newFailureCount }));
@@ -366,9 +367,9 @@ const WorkoutView = () => {
       if(currentUser && !userSettings) {
         getUserSettings(currentUser.uid).then(setUserSettings);
       }
-      return <div className="p-6 text-white text-center">Loading user settings...</div>;
+      return <div className="p-6 text-center text-white">Loading user settings...</div>;
     }
-    return <div className="p-6 text-white text-center">Loading workout data...</div>;
+    return <div className="p-6 text-center text-white">Loading workout data...</div>;
   }
 
   return (
@@ -384,14 +385,14 @@ const WorkoutView = () => {
           <button
             onClick={() => setCurrentWorkoutId('workoutA')}
             disabled={isSessionComplete || isDraftLoaded}
-            className={`w-full rounded-lg px-6 py-2 font-bold transition-colors duration-200 md:w-auto ${getButtonClass('workoutA')} disabled:bg-gray-500 disabled:cursor-not-allowed`}
+            className={`w-full rounded-lg px-6 py-2 font-bold transition-colors duration-200 md:w-auto ${getButtonClass('workoutA')} disabled:cursor-not-allowed disabled:bg-gray-500`}
           >
             Workout A
           </button>
           <button
             onClick={() => setCurrentWorkoutId('workoutB')}
             disabled={isSessionComplete || isDraftLoaded}
-            className={`w-full rounded-lg px-6 py-2 font-bold transition-colors duration-200 md:w-auto ${getButtonClass('workoutB')} disabled:bg-gray-500 disabled:cursor-not-allowed`}
+            className={`w-full rounded-lg px-6 py-2 font-bold transition-colors duration-200 md:w-auto ${getButtonClass('workoutB')} disabled:cursor-not-allowed disabled:bg-gray-500`}
           >
             Workout B
           </button>
@@ -450,7 +451,7 @@ const WorkoutView = () => {
               </button>
             </div>
           ) : (
-            <Link to="/" className="w-full rounded-lg bg-green-600 px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-green-700 md:w-auto">
+            <Link to="/" className="inline-block w-full rounded-lg bg-green-600 px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-green-700 md:w-auto">
               Go to Dashboard
             </Link>
           )}

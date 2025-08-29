@@ -15,7 +15,7 @@ import {
   limit,
   setDoc,
   getDoc,
-  deleteDoc // --- ADD: Import deleteDoc ---
+  deleteDoc
 } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -141,9 +141,8 @@ export const getWorkouts = async (userId) => {
     const q = query(workoutsCol, where("userId", "==", userId), orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
     
-    // --- FIX: Use a non-conflicting property for the unique document ID ---
     const workouts = querySnapshot.docs.map(doc => ({
-      docId: doc.id, // Use docId for the unique Firestore ID
+      docId: doc.id,
       ...doc.data()
     }));
     
@@ -154,7 +153,6 @@ export const getWorkouts = async (userId) => {
   }
 };
 
-// --- NEW: Function to delete a workout session ---
 export const deleteWorkout = async (workoutId) => {
   try {
     const workoutRef = doc(db, "workout_sessions", workoutId);
@@ -214,6 +212,7 @@ export const createInitialUserProgress = async (userId, baselineWeights) => {
       currentWeight: baselineWeights[exerciseId],
       increment: defaultLift ? defaultLift.increment : 5,
       failureCount: 0,
+      baselineWeight: baselineWeights[exerciseId], // Store the baseline
     };
     batch.set(docRef, liftData);
   }
@@ -251,6 +250,8 @@ export const updateUserProgressAfterWorkout = async (userId, progressId, updates
 const defaultSettings = {
   barbellWeight: 45,
   legPressSledWeight: 75,
+  weightIncrement: 5,    // New
+  deloadPercentage: 10,  // New
   increments: {
     squat: 5,
     'bench-press': 5,
@@ -265,8 +266,11 @@ export const getUserSettings = async (userId) => {
   const docSnap = await getDoc(settingsRef);
 
   if (docSnap.exists()) {
+    // Merge fetched settings with defaults to ensure new settings are present
     return { ...defaultSettings, ...docSnap.data() };
   } else {
+    // If no settings exist, create them with defaults
+    await saveUserSettings(userId, defaultSettings);
     return defaultSettings;
   }
 };
@@ -280,6 +284,30 @@ export const saveUserSettings = async (userId, settingsData) => {
     throw new Error("Could not save settings.");
   }
 };
+
+// New function as per plan
+export const resetProgressToBaseline = async (userId) => {
+    const progressCol = collection(db, "users", userId, "user_lift_progress");
+    const querySnapshot = await getDocs(progressCol);
+
+    if (querySnapshot.empty) {
+        return;
+    }
+
+    const batch = writeBatch(db);
+    querySnapshot.forEach(doc => {
+        const liftData = doc.data();
+        if (liftData.baselineWeight !== undefined) {
+            batch.update(doc.ref, {
+                currentWeight: liftData.baselineWeight,
+                failureCount: 0,
+            });
+        }
+    });
+
+    await batch.commit();
+};
+
 
 export const resetLiftProgress = async (userId, liftId) => {
   const docRef = doc(db, "users", userId, "user_lift_progress", liftId);
