@@ -51,7 +51,7 @@ const ExerciseDisplay = ({
                 className="rounded bg-gray-600 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-gray-500"
                 aria-label="Open plate calculator"
               >
-                <FaCalculator />
+                <FaCalculator className="mr-1 inline" /> Calc
               </button>
             </>
           )}
