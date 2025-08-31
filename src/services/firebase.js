@@ -41,7 +41,8 @@ export const createUserProfile = async (user) => {
       isSetupComplete: false,
       createdAt: serverTimestamp(),
     });
-  } catch (error) {
+  } catch (error)
+ {
     console.error("Error creating user profile:", error);
   }
 };
@@ -71,12 +72,7 @@ export const getAllExercises = async () => {
     const exercisesCol = collection(db, "exercises");
     const q = query(exercisesCol);
     const querySnapshot = await getDocs(q);
-
-    const exercises = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-
+    const exercises = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     return exercises;
   } catch (error) {
     console.error("Error fetching all exercises: ", error);
@@ -89,12 +85,7 @@ export const getExercisesByCategory = async (category) => {
     const exercisesCol = collection(db, "exercises");
     const q = query(exercisesCol, where("category", "==", category));
     const querySnapshot = await getDocs(q);
-
-    const exercises = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-
+    const exercises = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     return exercises;
   } catch (error) {
     console.error("Error fetching exercises by category: ", error);
@@ -103,14 +94,17 @@ export const getExercisesByCategory = async (category) => {
 };
 
 // --- WORKOUT SESSION FUNCTIONS ---
-export const saveWorkout = async (userId, workoutData) => {
+export const saveWorkoutSession = async (userId, workoutData) => {
   try {
-    const docRef = await addDoc(collection(db, "workout_sessions"), {
+    const dataToSave = {
       userId: userId,
       ...workoutData,
-      workoutType: '5x5',
       createdAt: serverTimestamp(),
-    });
+    };
+    if (workoutData.workoutType === 'circuit' && workoutData.totalTimeInSeconds !== undefined) {
+      dataToSave.metTimeGoal = workoutData.totalTimeInSeconds <= 1800;
+    }
+    const docRef = await addDoc(collection(db, "workout_sessions"), dataToSave);
     console.log("Workout saved with ID: ", docRef.id);
     return docRef;
   } catch (error) {
@@ -119,33 +113,12 @@ export const saveWorkout = async (userId, workoutData) => {
   }
 };
 
-export const saveCircuitWorkout = async (userId, workoutData) => {
-  try {
-    const docRef = await addDoc(collection(db, 'workout_sessions'), {
-      userId: userId,
-      ...workoutData,
-      workoutType: 'circuit',
-      createdAt: serverTimestamp(),
-    });
-    console.log('Circuit workout saved with ID: ', docRef.id);
-    return docRef;
-  } catch (error) {
-    console.error('Error saving circuit workout: ', error);
-    throw new Error('Could not save circuit workout session.');
-  }
-};
-
 export const getWorkouts = async (userId) => {
   try {
     const workoutsCol = collection(db, "workout_sessions");
     const q = query(workoutsCol, where("userId", "==", userId), orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
-    
-    const workouts = querySnapshot.docs.map(doc => ({
-      docId: doc.id,
-      ...doc.data()
-    }));
-    
+    const workouts = querySnapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
     return workouts;
   } catch (error) {
     console.error("Error fetching workouts: ", error);
@@ -166,22 +139,10 @@ export const deleteWorkout = async (workoutId) => {
 export const getLastWorkout = async (userId) => {
   try {
     const workoutsCol = collection(db, "workout_sessions");
-    const q = query(
-      workoutsCol,
-      where("userId", "==", userId),
-      where("workoutType", "==", "5x5"),
-      orderBy("createdAt", "desc"),
-      limit(1)
-    );
+    const q = query(workoutsCol, where("userId", "==", userId), where("workoutType", "==", "5x5"), orderBy("createdAt", "desc"), limit(1));
     const querySnapshot = await getDocs(q);
-
-    if (querySnapshot.empty) {
-      return null;
-    }
-
-    const lastWorkout = querySnapshot.docs[0].data();
-    return lastWorkout;
-
+    if (querySnapshot.empty) return null;
+    return querySnapshot.docs[0].data();
   } catch (error) {
     console.error("Error fetching last workout: ", error);
     throw new Error("Could not fetch last workout.");
@@ -201,7 +162,6 @@ const defaultLifts = [
 export const createInitialUserProgress = async (userId, baselineWeights) => {
   const progressColRef = collection(db, 'users', userId, 'user_lift_progress');
   const batch = writeBatch(db);
-
   for (const exerciseId in baselineWeights) {
     const defaultLift = defaultLifts.find(lift => lift.exerciseId === exerciseId);
     const docRef = doc(progressColRef, exerciseId);
@@ -212,7 +172,7 @@ export const createInitialUserProgress = async (userId, baselineWeights) => {
       currentWeight: baselineWeights[exerciseId],
       increment: defaultLift ? defaultLift.increment : 5,
       failureCount: 0,
-      baselineWeight: baselineWeights[exerciseId], // Store the baseline
+      baselineWeight: baselineWeights[exerciseId],
     };
     batch.set(docRef, liftData);
   }
@@ -223,17 +183,12 @@ export const getUserProgress = async (userId) => {
   const progressCol = collection(db, "users", userId, "user_lift_progress");
   const q = query(progressCol);
   const querySnapshot = await getDocs(q);
-
-  if (querySnapshot.empty) {
-    return {};
-  } else {
-    const userProgress = {};
-    querySnapshot.docs.forEach(doc => {
-      const data = doc.data();
-      userProgress[doc.id] = { id: doc.id, ...data }; 
-    });
-    return userProgress;
-  }
+  if (querySnapshot.empty) return {};
+  const userProgress = {};
+  querySnapshot.docs.forEach(doc => {
+    userProgress[doc.id] = { id: doc.id, ...doc.data() }; 
+  });
+  return userProgress;
 };
 
 export const updateUserProgressAfterWorkout = async (userId, progressId, updates) => {
@@ -250,26 +205,19 @@ export const updateUserProgressAfterWorkout = async (userId, progressId, updates
 const defaultSettings = {
   barbellWeight: 45,
   legPressSledWeight: 75,
-  weightIncrement: 5,    // New
-  deloadPercentage: 10,  // New
+  weightIncrement: 5,
+  deloadPercentage: 10,
   increments: {
-    squat: 5,
-    'bench-press': 5,
-    'barbell-row': 5,
-    'overhead-press': 5,
-    deadlift: 10,
+    squat: 5, 'bench-press': 5, 'barbell-row': 5, 'overhead-press': 5, deadlift: 10,
   },
 };
 
 export const getUserSettings = async (userId) => {
   const settingsRef = doc(db, "users", userId, "settings", "userSettings");
   const docSnap = await getDoc(settingsRef);
-
   if (docSnap.exists()) {
-    // Merge fetched settings with defaults to ensure new settings are present
     return { ...defaultSettings, ...docSnap.data() };
   } else {
-    // If no settings exist, create them with defaults
     await saveUserSettings(userId, defaultSettings);
     return defaultSettings;
   }
@@ -285,69 +233,41 @@ export const saveUserSettings = async (userId, settingsData) => {
   }
 };
 
-// New function as per plan
 export const resetProgressToBaseline = async (userId) => {
     const progressCol = collection(db, "users", userId, "user_lift_progress");
     const querySnapshot = await getDocs(progressCol);
-
-    if (querySnapshot.empty) {
-        return;
-    }
-
+    if (querySnapshot.empty) return;
     const batch = writeBatch(db);
     querySnapshot.forEach(doc => {
         const liftData = doc.data();
         if (liftData.baselineWeight !== undefined) {
-            batch.update(doc.ref, {
-                currentWeight: liftData.baselineWeight,
-                failureCount: 0,
-            });
+            batch.update(doc.ref, { currentWeight: liftData.baselineWeight, failureCount: 0 });
         }
     });
-
     await batch.commit();
 };
-
 
 export const resetLiftProgress = async (userId, liftId) => {
   const docRef = doc(db, "users", userId, "user_lift_progress", liftId);
   const docSnap = await getDoc(docRef);
-
-  if (!docSnap.exists()) {
-    throw new Error("Could not find lift progress to reset.");
-  }
-  
+  if (!docSnap.exists()) throw new Error("Could not find lift progress to reset.");
   const defaultLift = defaultLifts.find(l => l.exerciseId === liftId);
-  if (!defaultLift) {
-    throw new Error("Default lift data not found.");
-  }
-  
-  await updateDoc(docRef, {
-    currentWeight: defaultLift.currentWeight,
-    failureCount: 0,
-  });
+  if (!defaultLift) throw new Error("Default lift data not found.");
+  await updateDoc(docRef, { currentWeight: defaultLift.currentWeight, failureCount: 0 });
 };
 
 export const resetAllProgress = async (userId) => {
   const progressCol = collection(db, "users", userId, "user_lift_progress");
   const querySnapshot = await getDocs(progressCol);
-  
-  if (querySnapshot.empty) {
-    return;
-  }
-  
+  if (querySnapshot.empty) return;
   const batch = writeBatch(db);
   querySnapshot.forEach(doc => {
     const liftData = doc.data();
     const defaultLift = defaultLifts.find(l => l.exerciseId === liftData.exerciseId);
     if (defaultLift) {
-      batch.update(doc.ref, {
-        currentWeight: defaultLift.currentWeight,
-        failureCount: 0,
-      });
+      batch.update(doc.ref, { currentWeight: defaultLift.currentWeight, failureCount: 0 });
     }
   });
-  
   await batch.commit();
 };
 

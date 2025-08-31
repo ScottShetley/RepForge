@@ -43,21 +43,14 @@ const Settings = () => {
     const finalValue = type === 'number'
       ? isNaN (valueAsNumber) ? 0 : valueAsNumber
       : value;
-
-    setSettings (prev => ({
-      ...prev,
-      [name]: finalValue,
-    }));
+    setSettings (prev => ({...prev, [name]: finalValue}));
   };
 
   const handleIncrementChange = (liftId, value) => {
     const parsedValue = parseInt (value, 10) || 0;
     setSettings (prev => ({
       ...prev,
-      increments: {
-        ...prev.increments,
-        [liftId]: parsedValue,
-      },
+      increments: {...prev.increments, [liftId]: parsedValue},
     }));
   };
 
@@ -145,7 +138,6 @@ const Settings = () => {
     <MainLayout>
       <div className="mx-auto max-w-3xl p-4 md:p-6">
         <h2 className="mb-6 text-3xl font-bold text-white">Settings</h2>
-
         <form onSubmit={handleSave} className="space-y-8">
           {/* General Settings */}
           <div className="rounded-lg bg-gray-900 p-6">
@@ -237,7 +229,7 @@ const Settings = () => {
             </div>
           </div>
 
-          {/* Weight Increments - Kept for potential future use, can be removed */}
+          {/* Per-Exercise Increments */}
           <div className="rounded-lg bg-gray-900 p-6">
             <h3 className="mb-4 text-xl font-semibold text-cyan-400">
               Per-Exercise Increments (lbs)

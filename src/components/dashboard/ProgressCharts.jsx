@@ -12,7 +12,6 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-// Function to process raw workout data into a format suitable for charts
 const processDataForCharts = workouts => {
   const chartData = {};
   const coreLifts = [
@@ -23,28 +22,31 @@ const processDataForCharts = workouts => {
     'Deadlift',
   ];
 
-  // Initialize arrays for each core lift
   coreLifts.forEach (lift => {
     chartData[lift] = [];
   });
+  chartData['Circuit Duration'] = []; // Initialize new chart data
 
-  // Iterate workouts from oldest to newest for a proper timeline
   [...workouts].reverse ().forEach (session => {
-    if (session.workoutType === '5x5' && session.exercises) {
-      const date = new Date (
-        session.createdAt.seconds * 1000
-      ).toLocaleDateString ('en-US', {month: 'numeric', day: 'numeric'});
+    const date = new Date (
+      session.createdAt.seconds * 1000
+    ).toLocaleDateString ('en-US', {month: 'numeric', day: 'numeric'});
 
+    if (session.workoutType === '5x5' && session.exercises) {
       session.exercises.forEach (exercise => {
-        if (coreLifts.includes (exercise.name)) {
-          // Add data point if weight is valid
-          if (exercise.weight && exercise.weight > 0) {
-            chartData[exercise.name].push ({
-              date: date,
-              weight: exercise.weight,
-            });
-          }
+        if (coreLifts.includes (exercise.name) && exercise.weight > 0) {
+          chartData[exercise.name].push ({
+            date: date,
+            weight: exercise.weight,
+          });
         }
+      });
+    }
+
+    if (session.workoutType === 'circuit' && session.totalTimeInSeconds > 0) {
+      chartData['Circuit Duration'].push ({
+        date: date,
+        Minutes: parseFloat ((session.totalTimeInSeconds / 60).toFixed (2)),
       });
     }
   });
@@ -95,27 +97,33 @@ const ProgressCharts = () => {
     );
   }
 
+  const chartConfigs = {
+    'Circuit Duration': {
+      dataKey: 'Minutes',
+      stroke: '#f59e0b', // Amber-500
+    },
+    default: {
+      dataKey: 'weight',
+      stroke: '#06b6d4', // Cyan-500
+    },
+  };
+
   return (
     <div className="space-y-8">
-      {Object.entries (chartData).map (([liftName, data]) => {
-        // Only render a chart if there are at least two data points
+      {Object.entries (chartData).map (([name, data]) => {
         if (data.length < 2) {
           return null;
         }
+        const config = chartConfigs[name] || chartConfigs.default;
         return (
-          <div key={liftName} className="rounded-lg bg-gray-900 p-4 shadow-lg">
+          <div key={name} className="rounded-lg bg-gray-900 p-4 shadow-lg">
             <h3 className="mb-4 text-xl font-bold text-white">
-              {liftName} Progress
+              {name} Progress
             </h3>
             <ResponsiveContainer width="100%" height={300}>
               <LineChart
                 data={data}
-                margin={{
-                  top: 5,
-                  right: 20,
-                  left: -10,
-                  bottom: 5,
-                }}
+                margin={{top: 5, right: 20, left: -10, bottom: 5}}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#4A5568" />
                 <XAxis dataKey="date" stroke="#A0AEC0" />
@@ -130,8 +138,8 @@ const ProgressCharts = () => {
                 <Legend wrapperStyle={{color: '#E2E8F0'}} />
                 <Line
                   type="monotone"
-                  dataKey="weight"
-                  stroke="#06b6d4" // Cyan-500
+                  dataKey={config.dataKey}
+                  stroke={config.stroke}
                   strokeWidth={2}
                   activeDot={{r: 8}}
                 />

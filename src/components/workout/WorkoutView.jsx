@@ -8,7 +8,7 @@ import AdjustWeightModal from './AdjustWeightModal';
 import RestTimer from './RestTimer';
 import { useAuth } from '../../hooks/useAuth';
 import {
-  saveWorkout,
+  saveWorkoutSession, // Corrected import
   getUserProgress,
   updateUserProgressAfterWorkout,
   getLastWorkout,
@@ -18,6 +18,7 @@ import { produce } from 'immer';
 
 const LOCAL_STORAGE_KEY = 'inProgressRepForgeWorkout';
 
+// ... (workoutTemplates and DELOAD_THRESHOLD constants remain the same) ...
 const workoutTemplates = {
   workoutA: {
     id: 'workoutA',
@@ -50,8 +51,8 @@ const workoutTemplates = {
     ],
   },
 };
-
 const DELOAD_THRESHOLD = 3;
+
 
 const WorkoutView = () => {
   const { currentUser } = useAuth();
@@ -86,15 +87,12 @@ const WorkoutView = () => {
       const savedWorkoutJSON = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (savedWorkoutJSON) {
         const savedWorkout = JSON.parse(savedWorkoutJSON);
-        // Ensure draft matches selected workout
         if (location.state?.workoutId && savedWorkout.id !== location.state.workoutId) {
-            // If it doesn't match, we discard the draft.
             localStorage.removeItem(LOCAL_STORAGE_KEY);
         } else {
             setWorkoutState(savedWorkout);
             setIsDraftLoaded(true);
             setIsWorkoutDirty(true);
-            console.log("Loaded in-progress workout from local storage.");
         }
       }
     } catch (error) {
@@ -109,42 +107,31 @@ const WorkoutView = () => {
     }
   }, [workoutState, isWorkoutDirty, isSessionComplete, isDiscarding]);
 
-  // Main data fetching and workout hydration effect
   useEffect(() => {
     if (!currentUser || isDraftLoaded || workoutState) {
         return;
     }
-
     const initializeWorkout = async () => {
         let workoutIdToLoad = location.state?.workoutId;
-
-        // Fallback if user navigates here directly
         if (!workoutIdToLoad) {
-            console.log("No workout selected, determining recommendation...");
             const lastWorkout = await getLastWorkout(currentUser.uid);
             workoutIdToLoad = !lastWorkout || lastWorkout.id === 'workoutB' ? 'workoutA' : 'workoutB';
         }
         
-        // Fetch necessary data
         const settings = await getUserSettings(currentUser.uid);
         setUserSettings(settings);
         const progress = await getUserProgress(currentUser.uid);
         setLiftProgress(progress);
         
-        // Hydrate the template with user's progress
         const template = workoutTemplates[workoutIdToLoad];
         if (!template) {
-            console.error("Invalid workout ID:", workoutIdToLoad);
             navigate('/select-workout');
             return;
         }
 
         const hydratedExercises = template.coreLifts.map((lift) => {
             const progressData = progress[lift.exerciseId];
-            const newSets = Array.from({ length: lift.sets }, () => ({
-                reps: 0,
-                targetReps: lift.reps,
-            }));
+            const newSets = Array.from({ length: lift.sets }, () => ({ reps: 0, targetReps: lift.reps }));
             return {
                 ...lift,
                 progressId: progressData?.id || lift.exerciseId,
@@ -170,7 +157,6 @@ const WorkoutView = () => {
             subSetWorkout: accessoryExercises,
         });
     };
-
     initializeWorkout();
   }, [currentUser, location.state, isDraftLoaded, workoutState, navigate]);
 
@@ -201,7 +187,6 @@ const WorkoutView = () => {
     setIsTimerRunning(false);
   };
   
-  // ... other handlers remain the same ...
   const handleOpenCalculator = (weight) => {
     setCalculatorWeight(weight);
     setIsCalculatorOpen(true);
@@ -329,7 +314,6 @@ const WorkoutView = () => {
           if (exercise.weight > progressData.currentWeight) {
             newPRsAchieved = true;
           }
-
           const newWeight = progressData.currentWeight + weightIncrement;
           const updatePayload = { currentWeight: newWeight, failureCount: 0 };
           progressionPromises.push(updateUserProgressAfterWorkout(currentUser.uid, exercise.progressId, updatePayload));
@@ -344,9 +328,13 @@ const WorkoutView = () => {
         }
       });
       
-      const workoutToSave = { ...finalWorkoutState, containsNewPR: newPRsAchieved };
+      const workoutToSave = { 
+        ...finalWorkoutState, 
+        containsNewPR: newPRsAchieved,
+        workoutType: '5x5' // Added workoutType
+      };
       
-      await saveWorkout(currentUser.uid, workoutToSave);
+      await saveWorkoutSession(currentUser.uid, workoutToSave); // Corrected function call
       await Promise.all(progressionPromises);
 
       localStorage.removeItem(LOCAL_STORAGE_KEY);
@@ -365,9 +353,7 @@ const WorkoutView = () => {
   const handleDiscardWorkout = () => {
     if (window.confirm("Are you sure you want to discard your in-progress workout and start a new one?")) {
       setIsDiscarding(true);
-      
       localStorage.removeItem(LOCAL_STORAGE_KEY);
-      
       setWorkoutState(null);
       setIsDraftLoaded(false);
       setIsWorkoutDirty(false);
@@ -389,16 +375,12 @@ const WorkoutView = () => {
             Resuming in-progress workout.
           </div>
         )}
-
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-3xl font-bold text-white">{workoutState.name}</h2>
           <span className="text-lg text-gray-400">
-            {new Date().toLocaleDateString('en-US', {
-              month: 'long', day: 'numeric', year: 'numeric',
-            })}
+            {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
           </span>
         </div>
-
         <div className="space-y-6">
           {workoutState.exercises.map((exercise, index) => (
             <ExerciseDisplay
@@ -413,7 +395,6 @@ const WorkoutView = () => {
             />
           ))}
         </div>
-        
         <SubSetWorkout
           exercises={workoutState.subSetWorkout}
           onSetToggle={(exerciseIndex, setIndex) => handleSetToggle('subSetWorkout', exerciseIndex, setIndex)}
@@ -423,7 +404,6 @@ const WorkoutView = () => {
           isComplete={isSessionComplete}
           onLockIn={(exerciseIndex) => handleLockInExercise('subSetWorkout', exerciseIndex)}
         />
-
         <div className="mt-8 border-t border-gray-700 pt-6 text-center">
           {!isSessionComplete ? (
             <div className="flex flex-col items-center gap-4 md:flex-row md:justify-center">
@@ -448,27 +428,23 @@ const WorkoutView = () => {
               Go to Dashboard
             </Link>
           )}
-
           {saveMessage && (
             <p className="mt-4 text-sm text-gray-300">{saveMessage}</p>
           )}
         </div>
       </div>
-      
       <ExerciseSwapModal
         isOpen={isSwapModalOpen}
         onClose={handleCloseSwapModal}
         onExerciseSelect={handleExerciseSelect}
         exerciseToSwap={exerciseToSwap}
       />
-
       <PlateCalculatorModal
         isOpen={isCalculatorOpen}
         onClose={handleCloseCalculator}
         targetWeight={calculatorWeight}
         barbellWeight={userSettings?.barbellWeight}
       />
-
       <AdjustWeightModal
         isOpen={isAdjustWeightModalOpen}
         onClose={handleCloseAdjustWeightModal}
@@ -479,7 +455,6 @@ const WorkoutView = () => {
             : 0
         }
       />
-
       <RestTimer 
         isVisible={isTimerVisible || isTimerRunning}
         onStart={handleStartTimer}

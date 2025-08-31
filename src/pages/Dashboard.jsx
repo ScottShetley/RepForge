@@ -46,7 +46,6 @@ const Dashboard = () => {
     }
     try {
       await deleteWorkout(workoutId);
-      // Re-fetch workouts after deletion
       const userWorkouts = await getWorkouts(currentUser.uid);
       setWorkouts(userWorkouts);
     } catch (error) {
@@ -60,7 +59,7 @@ const Dashboard = () => {
       return (
         <div className="py-8 text-center text-gray-400">
           <p>You haven't logged any workouts yet.</p>
-          <p className="mt-2">Click "New Workout" to get started!</p>
+          <p className="mt-2">Click "+ New Workout" to get started!</p>
         </div>
       );
     }
@@ -90,6 +89,16 @@ const Dashboard = () => {
                         aria-label="personal record medal"
                       >
                         🥇
+                      </span>
+                    )}
+                    {workout.metTimeGoal && (
+                       <span
+                        className="ml-2 text-xl"
+                        title="Completed under 30 minutes!"
+                        role="img"
+                        aria-label="time goal trophy"
+                      >
+                        🏆
                       </span>
                     )}
                   </h3>
@@ -125,7 +134,6 @@ const Dashboard = () => {
     );
   };
 
-  // --- FIX: Create an array of date STRINGS for comparison ---
   const highlightedDates = workouts.map(w =>
     new Date(w.createdAt.seconds * 1000).toDateString()
   );
@@ -178,10 +186,8 @@ const Dashboard = () => {
             + New Workout
           </Link>
         </div>
-
         {renderContent()}
       </div>
-
       <WorkoutModal
         workout={selectedWorkout}
         onClose={() => setSelectedWorkout(null)}
