@@ -91,22 +91,29 @@ const WorkoutModal = ({workout, onClose}) => {
   };
 
   return (
+    // Overlay: Now has padding to ensure the modal never touches the screen edges
     <div
-      className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4"
       onClick={onClose}
     >
+      {/* Main Card: Converted to a flex column with a max height. */}
       <div
-        className="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md m-4 border border-gray-700"
+        className="flex h-full max-h-full w-full max-w-md flex-col overflow-hidden rounded-lg border border-gray-700 bg-gray-800 shadow-xl"
         onClick={e => e.stopPropagation ()}
       >
-        <div className="mb-4 flex items-center justify-between">
+        {/* Header: Stable, non-shrinking header with padding */}
+        <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-700 p-4 sm:p-6">
           <h3 className="text-2xl font-bold text-cyan-400">{workoutTitle}</h3>
           <span className="text-sm text-gray-400">{workoutDate}</span>
         </div>
 
-        {renderWorkoutDetails ()}
+        {/* Scrolling Content Area: Grows to fill space and scrolls if content overflows */}
+        <div className="flex-grow overflow-y-auto p-4 sm:p-6">
+          {renderWorkoutDetails ()}
+        </div>
 
-        <div className="mt-6 text-right">
+        {/* Footer: Stable, non-shrinking footer with padding */}
+        <div className="flex-shrink-0 border-t border-gray-700 p-4 text-right sm:p-6">
           <button
             onClick={onClose}
             className="rounded-lg bg-indigo-600 px-4 py-2 text-base font-bold text-white transition-colors hover:bg-indigo-700"
