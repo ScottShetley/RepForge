@@ -16,16 +16,16 @@ const Instructions = () => {
                 Starting a Workout
               </h2>
               <p>
-                From the Dashboard, you have two options: "Start RepForge Workout" for your main strength progression, or "Start Circuit Workout" for machine-based training. The application will automatically suggest your next RepForge workout (A or B) based on your history.
+                From the Dashboard, click '+ New Workout' to go to the Workout Selection screen. Here you can choose between Workout A, Workout B, or Circuit Training.
               </p>
             </section>
 
             <section>
               <h2 className="mb-2 text-2xl font-semibold text-cyan-400">
-                Progression, Failures & Deloads
+                Progression, Failures &amp; Deloads
               </h2>
               <p className="mb-2">
-                The app automates the RepForge progression rules for the main workout:
+                The app automates the RepForge progression rules for the main workouts (A &amp; B):
               </p>
               <ul className="list-inside list-disc space-y-1 pl-2">
                 <li>
@@ -41,24 +41,16 @@ const Instructions = () => {
                 <li>
                   <strong>Deload:</strong>
                   {' '}
-                  If you fail the same weight three times in a row, the app will automatically deload the weight by 10% to help you break through the plateau.
+                  If you fail the same weight three times in a row, the app will automatically deload the weight by 10% (
+                  <strong>this percentage can be changed in Settings</strong>
+                  ) to help you break through the plateau.
                 </li>
               </ul>
             </section>
 
-            {/* --- NEW SECTION --- */}
             <section>
               <h2 className="mb-2 text-2xl font-semibold text-cyan-400">
-                Circuit Training
-              </h2>
-              <p>
-                The Circuit Tracker is designed for machine-based workouts. Simply enter the weight and number of reps you performed for each exercise. Only exercises where you have entered both a weight and reps will be saved to your workout history.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="mb-2 text-2xl font-semibold text-cyan-400">
-                Adjusting & Swapping (RepForge Workout)
+                In-Workout Controls
               </h2>
               <p className="mb-2">
                 You have full control over your RepForge workout session:
@@ -67,14 +59,81 @@ const Instructions = () => {
                 <li>
                   <strong>Adjust Weight:</strong>
                   {' '}
-                  Click the pencil icon next to a core lift to make a one-time weight adjustment for the current session. This is useful if you feel strong or need to correct the weight.
+                  Click the "Adjust" button next to a core lift to make a one-time weight adjustment for the current session.
                 </li>
                 <li>
                   <strong>Swap Exercise:</strong>
                   {' '}
-                  Use the "Swap" button to substitute an exercise with another from the library that targets the same muscle group.
+                  Use the "Swap" button to substitute an exercise with another from the library.
+                </li>
+                <li>
+                  <strong>Plate Calculator:</strong>
+                  {' '}
+                  Click the "Calc" button to open a tool that helps you determine which plates to load on the barbell for your target weight.
                 </li>
               </ul>
+            </section>
+
+            <section>
+              <h2 className="mb-2 text-2xl font-semibold text-cyan-400">
+                Using the Rest Timer
+              </h2>
+              <p>
+                After you log a completed set in a RepForge workout, a rest timer will automatically appear. You can select your desired rest period to stay on track during your session.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="mb-2 text-2xl font-semibold text-cyan-400">
+                Circuit Training
+              </h2>
+              <p>
+                The Circuit Tracker is designed for accessory or machine-based workouts. Simply enter the weight and number of reps you performed for each exercise. Only exercises where you have entered data will be saved to your workout history.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="mb-2 text-2xl font-semibold text-cyan-400">
+                Exploring Your Dashboard
+              </h2>
+              <p>
+                Your dashboard is your mission control. The
+                {' '}
+                <strong>Strength Progression</strong>
+                {' '}
+                charts visualize your gains on core lifts over time.
+                {' '}
+                <strong>
+                  Note: A chart will only appear for a given lift after you have completed at least three workouts containing it.
+                </strong>
+                {' '}
+                You can also click any highlighted day on the
+                {' '}
+                <strong>Workout Calendar</strong>
+                {' '}
+                to view a summary of that session.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="mb-2 text-2xl font-semibold text-cyan-400">
+                Customizing Your Settings
+              </h2>
+              <p>
+                Navigate to the Settings page to tailor RepForge to your needs. Here you can adjust the default
+                {' '}
+                <strong>Weight Increment</strong>
+                {' '}
+                for successful progressions, change the
+                {' '}
+                <strong>Deload Percentage</strong>
+                {' '}
+                for when you plateau, and, if needed,
+                {' '}
+                <strong>Reset All Progress</strong>
+                {' '}
+                to start your journey from scratch.
+              </p>
             </section>
 
             <section>
@@ -82,7 +141,7 @@ const Instructions = () => {
                 Finishing Your Session
               </h2>
               <p>
-                When you are done, click the "Save and Finish" button. This will lock in your progression for the day and save the session to your history. The app will have your next workout ready for you the next time you visit.
+                When you are done, click the "Save and Finish" button. This will lock in your progression for the day and save the session to your history.
               </p>
             </section>
           </div>
