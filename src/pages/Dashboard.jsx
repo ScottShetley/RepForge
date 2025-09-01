@@ -1,141 +1,65 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, {useState, useEffect} from 'react';
+import {Link} from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import WorkoutCalendar from '../components/dashboard/WorkoutCalendar';
 import WorkoutModal from '../components/dashboard/WorkoutModal';
-import { useAuth } from '../hooks/useAuth';
-import { getWorkouts, deleteWorkout } from '../services/firebase';
+import {useAuth} from '../hooks/useAuth';
+import {getWorkouts, deleteWorkout} from '../services/firebase';
 import ProgressCharts from '../components/dashboard/ProgressCharts';
+import RecentWorkouts from '../components/dashboard/RecentWorkouts'; // New Import
 
 const Dashboard = () => {
-  const [workouts, setWorkouts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const { currentUser } = useAuth();
-  const [selectedWorkout, setSelectedWorkout] = useState(null);
+  const [workouts, setWorkouts] = useState ([]);
+  const [loading, setLoading] = useState (true);
+  const [error, setError] = useState ('');
+  const {currentUser} = useAuth ();
+  const [selectedWorkout, setSelectedWorkout] = useState (null);
 
-  useEffect(() => {
-    const fetchWorkouts = async () => {
-      if (!currentUser) {
-        setLoading(false);
-        return;
-      }
+  useEffect (
+    () => {
+      const fetchWorkouts = async () => {
+        if (!currentUser) {
+          setLoading (false);
+          return;
+        }
 
-      try {
-        setLoading(true);
-        const userWorkouts = await getWorkouts(currentUser.uid);
-        setWorkouts(userWorkouts);
-      } catch (err) {
-        setError('Failed to load workout history.');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
+        try {
+          setLoading (true);
+          const userWorkouts = await getWorkouts (currentUser.uid);
+          setWorkouts (userWorkouts);
+        } catch (err) {
+          setError ('Failed to load workout history.');
+          console.error (err);
+        } finally {
+          setLoading (false);
+        }
+      };
 
-    fetchWorkouts();
-  }, [currentUser]);
+      fetchWorkouts ();
+    },
+    [currentUser]
+  );
 
   const handleDeleteWorkout = async workoutId => {
     if (
-      !window.confirm(
+      !window.confirm (
         'Are you sure you want to delete this workout? This action cannot be undone.'
       )
     ) {
       return;
     }
     try {
-      await deleteWorkout(workoutId);
-      const userWorkouts = await getWorkouts(currentUser.uid);
-      setWorkouts(userWorkouts);
+      await deleteWorkout (currentUser.uid, workoutId); // Updated to pass UID
+      const userWorkouts = await getWorkouts (currentUser.uid);
+      setWorkouts (userWorkouts);
     } catch (error) {
-      setError('Failed to delete workout. Please try again.');
-      console.error('Error deleting workout:', error);
+      setError ('Failed to delete workout. Please try again.');
+      console.error ('Error deleting workout:', error);
     }
   };
 
-  const renderHistoryList = () => {
-    if (workouts.length === 0) {
-      return (
-        <div className="py-8 text-center text-gray-400">
-          <p>You haven't logged any workouts yet.</p>
-          <p className="mt-2">Click "+ New Workout" to get started!</p>
-        </div>
-      );
-    }
-    return (
-      <div className="space-y-6">
-        {workouts.slice(0, 5).map(workout => {
-          const workoutName =
-            workout.workoutType === 'circuit' ? 'Circuit Training' : workout.name;
-
-          return (
-            <div
-              key={workout.docId}
-              className="relative rounded-lg bg-gray-800 p-6 shadow-md transition-colors"
-            >
-              <div
-                className="cursor-pointer"
-                onClick={() => setSelectedWorkout(workout)}
-              >
-                <div className="mb-4 flex items-center justify-between">
-                  <h3 className="text-2xl font-bold text-cyan-400">
-                    {workoutName}
-                    {workout.containsNewPR && (
-                      <span
-                        className="ml-2 text-xl"
-                        title="New Personal Record!"
-                        role="img"
-                        aria-label="personal record medal"
-                      >
-                        🥇
-                      </span>
-                    )}
-                    {workout.metTimeGoal && (
-                       <span
-                        className="ml-2 text-xl"
-                        title="Completed under 30 minutes!"
-                        role="img"
-                        aria-label="time goal trophy"
-                      >
-                        🏆
-                      </span>
-                    )}
-                  </h3>
-                  <span className="text-sm text-gray-400">
-                    {workout.createdAt
-                      ? new Date(
-                          workout.createdAt.seconds * 1000
-                        ).toLocaleString('en-US', {
-                          year: 'numeric',
-                          month: 'numeric',
-                          day: 'numeric',
-                          hour: 'numeric',
-                          minute: '2-digit',
-                        })
-                      : 'Date unavailable'}
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={e => {
-                  e.stopPropagation();
-                  handleDeleteWorkout(workout.docId);
-                }}
-                className="absolute top-2 right-2 text-xs font-bold text-gray-500 transition-colors hover:text-red-500"
-                aria-label="Delete workout"
-              >
-                DELETE
-              </button>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
-  const highlightedDates = workouts.map(w =>
-    new Date(w.createdAt.seconds * 1000).toDateString()
+  const highlightedDates = workouts.map (w =>
+    new Date (w.createdAt.seconds * 1000).toDateString ()
   );
 
   const renderContent = () => {
@@ -145,30 +69,40 @@ const Dashboard = () => {
     if (error) {
       return <p className="text-center text-red-400">{error}</p>;
     }
+    if (workouts.length === 0 && !loading) {
+      return (
+        <div className="py-8 text-center text-gray-400">
+          <p>You haven't logged any workouts yet.</p>
+          <p className="mt-2">Click "+ New Workout" to get started!</p>
+        </div>
+      );
+    }
     return (
-      <>
-        <div className="mb-8">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* -- Top Row -- */}
+        <div className="lg:col-span-2">
+          <WorkoutCalendar
+            workouts={workouts}
+            onDateClick={setSelectedWorkout}
+            heatmapDates={highlightedDates}
+          />
+        </div>
+        <div className="lg:col-span-1">
+          <RecentWorkouts
+            workouts={workouts.slice (0, 3)}
+            onSelect={setSelectedWorkout}
+            onDelete={handleDeleteWorkout}
+          />
+        </div>
+
+        {/* -- Bottom Row -- */}
+        <div className="lg:col-span-3">
           <h3 className="mb-4 text-2xl font-bold text-white">
             Strength Progression
           </h3>
-          <ProgressCharts />
+          <ProgressCharts workouts={workouts} />
         </div>
-
-        <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="mx-auto max-w-md md:col-span-2">
-            <WorkoutCalendar
-              workouts={workouts}
-              onDateClick={setSelectedWorkout}
-              heatmapDates={highlightedDates}
-            />
-          </div>
-        </div>
-
-        <h3 className="mt-8 mb-4 text-2xl font-bold text-white">
-          Recent Workouts
-        </h3>
-        {renderHistoryList()}
-      </>
+      </div>
     );
   };
 
@@ -186,11 +120,12 @@ const Dashboard = () => {
             + New Workout
           </Link>
         </div>
-        {renderContent()}
+        {renderContent ()}
       </div>
       <WorkoutModal
         workout={selectedWorkout}
-        onClose={() => setSelectedWorkout(null)}
+        onClose={() => setSelectedWorkout (null)}
+        onDelete={handleDeleteWorkout} // Pass delete handler to modal
       />
     </MainLayout>
   );
