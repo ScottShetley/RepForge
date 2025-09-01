@@ -1,4 +1,4 @@
-// FINAL CORRECTED VERSION: 8/28/2025
+// FINAL CORRECTED VERSION: 9/1/2025
 import React from 'react';
 import SetLogger from './SetLogger';
 import WeightStepper from './WeightStepper';
@@ -40,7 +40,8 @@ const SubSetWorkout = ({
                   </p>
                 </div>
 
-                <div className="flex w-full items-center justify-between sm:w-auto sm:justify-end sm:space-x-2">
+                {/* MODIFIED FOR CONSISTENT ALIGNMENT */}
+                <div className="flex flex-wrap items-center justify-start gap-4">
                   {!isLocked &&
                     <WeightStepper
                       weight={exercise.weight}
@@ -52,7 +53,7 @@ const SubSetWorkout = ({
                   <button
                     onClick={() => onLockIn (index)}
                     disabled={isLocked}
-                    className="ml-4 rounded bg-cyan-600 px-3 py-1 text-xs font-bold text-white transition-colors hover:bg-cyan-500 disabled:cursor-not-allowed disabled:bg-gray-500"
+                    className="rounded bg-cyan-600 px-3 py-1 text-xs font-bold text-white transition-colors hover:bg-cyan-500 disabled:cursor-not-allowed disabled:bg-gray-500"
                   >
                     <FaLock className="mr-1 inline" /> Lock it in
                   </button>
