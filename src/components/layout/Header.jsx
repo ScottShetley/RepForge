@@ -1,8 +1,8 @@
-import React, {useState} from 'react';
-import {useNavigate, NavLink} from 'react-router-dom';
-import {useAuth} from '../../hooks/useAuth';
+import React, { useState } from 'react';
+import { useNavigate, NavLink } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 
-const HamburgerIcon = ({onClick}) => (
+const HamburgerIcon = ({ onClick }) => (
   <button
     onClick={onClick}
     className="p-2 text-gray-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white md:hidden"
@@ -24,7 +24,7 @@ const HamburgerIcon = ({onClick}) => (
   </button>
 );
 
-const CloseIcon = ({onClick}) => (
+const CloseIcon = ({ onClick }) => (
   <button
     onClick={onClick}
     className="p-2 text-gray-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white md:hidden"
@@ -47,16 +47,16 @@ const CloseIcon = ({onClick}) => (
 );
 
 const Header = () => {
-  const {currentUser, logout} = useAuth ();
-  const navigate = useNavigate ();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState (false);
+  const { currentUser, logout } = useAuth();
+  const navigate = useNavigate();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
-      await logout ();
-      navigate ('/login');
+      await logout();
+      navigate('/login');
     } catch (error) {
-      console.error ('Failed to log out', error);
+      console.error('Failed to log out', error);
     }
   };
 
@@ -69,100 +69,129 @@ const Header = () => {
 
   return (
     <header className="sticky top-0 z-40 bg-gray-900 shadow-md">
-      <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
-        {/* Left Section: Logo and Desktop Nav */}
-        <div className="flex items-center space-x-8">
-          <h1 className="text-2xl font-bold text-cyan-400">RepForge</h1>
-          {currentUser &&
-            <nav className="hidden space-x-4 md:flex">
-              <NavLink
-                to="/"
-                end
-                className={({isActive}) =>
-                  `${linkStyle} ${isActive ? activeLinkStyle : inactiveLinkStyle}`}
-              >
-                Dashboard
-              </NavLink>
-              <NavLink
-                to="/select-workout" // MODIFIED
-                className={({isActive}) =>
-                  `${linkStyle} ${isActive ? activeLinkStyle : inactiveLinkStyle}`}
-              >
-                New Workout
-              </NavLink>
-              <NavLink
-                to="/instructions"
-                className={({isActive}) =>
-                  `${linkStyle} ${isActive ? activeLinkStyle : inactiveLinkStyle}`}
-              >
-                Instructions
-              </NavLink>
-              <NavLink
-                to="/settings"
-                className={({isActive}) =>
-                  `${linkStyle} ${isActive ? activeLinkStyle : inactiveLinkStyle}`}
-              >
-                Settings
-              </NavLink>
-            </nav>}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <h1 className="text-2xl font-bold text-cyan-400">RepForge</h1>
+            </div>
+            {currentUser && (
+              <nav className="hidden md:ml-6 md:flex md:space-x-4">
+                <NavLink
+                  to="/"
+                  end
+                  className={({ isActive }) =>
+                    `${linkStyle} ${
+                      isActive ? activeLinkStyle : inactiveLinkStyle
+                    }`
+                  }
+                >
+                  Dashboard
+                </NavLink>
+                <NavLink
+                  to="/select-workout"
+                  className={({ isActive }) =>
+                    `${linkStyle} ${
+                      isActive ? activeLinkStyle : inactiveLinkStyle
+                    }`
+                  }
+                >
+                  New Workout
+                </NavLink>
+                <NavLink
+                  to="/instructions"
+                  className={({ isActive }) =>
+                    `${linkStyle} ${
+                      isActive ? activeLinkStyle : inactiveLinkStyle
+                    }`
+                  }
+                >
+                  Instructions
+                </NavLink>
+                <NavLink
+                  to="/settings"
+                  className={({ isActive }) =>
+                    `${linkStyle} ${
+                      isActive ? activeLinkStyle : inactiveLinkStyle
+                    }`
+                  }
+                >
+                  Settings
+                </NavLink>
+              </nav>
+            )}
+          </div>
+
+          <div className="hidden md:ml-4 md:flex md:flex-shrink-0 md:items-center">
+            {currentUser && (
+              <>
+                <span className="text-sm text-gray-300">{currentUser.email}</span>
+                <button
+                  onClick={handleLogout}
+                  className="ml-4 rounded-md bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+                >
+                  Logout
+                </button>
+              </>
+            )}
+          </div>
+
+          <div className="-mr-2 flex items-center md:hidden">
+            {currentUser &&
+              (isMobileMenuOpen ? (
+                <CloseIcon onClick={() => setIsMobileMenuOpen(false)} />
+              ) : (
+                <HamburgerIcon onClick={() => setIsMobileMenuOpen(true)} />
+              ))}
+          </div>
         </div>
-
-        {/* Right Section: User Info and Logout (Desktop) */}
-        {currentUser &&
-          <div className="hidden items-center space-x-4 md:flex">
-            <span className="text-sm text-gray-300">{currentUser.email}</span>
-            <button
-              onClick={handleLogout}
-              className="rounded-md bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-900"
-            >
-              Logout
-            </button>
-          </div>}
-
-        {/* Mobile Menu Button */}
-        {currentUser &&
-          <div className="flex items-center md:hidden">
-            {isMobileMenuOpen
-              ? <CloseIcon onClick={() => setIsMobileMenuOpen (false)} />
-              : <HamburgerIcon onClick={() => setIsMobileMenuOpen (true)} />}
-          </div>}
       </div>
 
-      {/* Mobile Menu Flyout */}
-      {isMobileMenuOpen &&
-        currentUser &&
-        <div className="bg-gray-900 md:hidden">
+      {isMobileMenuOpen && currentUser && (
+        <div className="md:hidden">
           <div className="space-y-1 px-2 pt-2 pb-3 sm:px-3">
             <NavLink
               to="/"
               end
-              onClick={() => setIsMobileMenuOpen (false)}
-              className={({isActive}) =>
-                `${mobileLinkStyle} ${isActive ? activeLinkStyle : inactiveLinkStyle}`}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className={({ isActive }) =>
+                `${mobileLinkStyle} ${
+                  isActive ? activeLinkStyle : inactiveLinkStyle
+                }`
+              }
             >
               Dashboard
             </NavLink>
             <NavLink
-              to="/select-workout" // MODIFIED
-              onClick={() => setIsMobileMenuOpen (false)}
-              className={({isActive}) =>
-                `${mobileLinkStyle} ${isActive ? activeLinkStyle : inactiveLinkStyle}`}
+              to="/select-workout"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className={({ isActive }) =>
+                `${mobileLinkStyle} ${
+                  isActive ? activeLinkStyle : inactiveLinkStyle
+                }`
+              }
             >
               New Workout
             </NavLink>
             <NavLink
               to="/instructions"
-              onClick={() => setIsMobileMenuOpen (false)}
-              className={({isActive}) =>
-                `${mobileLinkStyle} ${isActive ? activeLinkStyle : inactiveLinkStyle}`}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className={({ isActive }) =>
+                `${mobileLinkStyle} ${
+                  isActive ? activeLinkStyle : inactiveLinkStyle
+                }`
+              }
             >
               Instructions
             </NavLink>
             <NavLink
               to="/settings"
-              onClick={() => setIsMobileMenuOpen (false)}
-              className={({isActive}) =>
-                `${mobileLinkStyle} ${isActive ? activeLinkStyle : inactiveLinkStyle}`}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className={({ isActive }) =>
+                `${mobileLinkStyle} ${
+                  isActive ? activeLinkStyle : inactiveLinkStyle
+                }`
+              }
             >
               Settings
             </NavLink>
@@ -182,7 +211,8 @@ const Header = () => {
               </button>
             </div>
           </div>
-        </div>}
+        </div>
+      )}
     </header>
   );
 };
