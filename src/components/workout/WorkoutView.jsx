@@ -8,7 +8,7 @@ import AdjustWeightModal from './AdjustWeightModal';
 import RestTimer from './RestTimer';
 import { useAuth } from '../../hooks/useAuth';
 import {
-  saveWorkoutSession, // Corrected import
+  saveWorkoutSession,
   getUserProgress,
   updateUserProgressAfterWorkout,
   getLastWorkout,
@@ -18,7 +18,6 @@ import { produce } from 'immer';
 
 const LOCAL_STORAGE_KEY = 'inProgressRepForgeWorkout';
 
-// ... (workoutTemplates and DELOAD_THRESHOLD constants remain the same) ...
 const workoutTemplates = {
   workoutA: {
     id: 'workoutA',
@@ -296,52 +295,74 @@ const WorkoutView = () => {
     setSaveMessage('');
 
     const finalWorkoutState = workoutStateRef.current;
+    const progressionPromises = [];
+    const { weightIncrement, deloadPercentage } = userSettings;
+    const deloadMultiplier = 1 - deloadPercentage / 100;
     
     let newPRsAchieved = false;
-    
-    try {
-      const progressionPromises = [];
-      const { weightIncrement, deloadPercentage } = userSettings;
-      const deloadMultiplier = 1 - (deloadPercentage / 100);
 
-      finalWorkoutState.exercises.forEach(exercise => {
-        const progressData = liftProgress[exercise.exerciseId]; 
-        if (!progressData) return;
-        
-        const wasSuccessful = exercise.sets.every(set => set.reps >= set.targetReps);
-        
-        if (wasSuccessful) {
+    const exercisesWithStatus = finalWorkoutState.exercises.map(exercise => {
+      const progressData = liftProgress[exercise.exerciseId];
+      if (!progressData) return exercise;
+
+      const totalRepsLogged = exercise.sets.reduce((sum, set) => sum + (set.reps || 0), 0);
+      const wasSuccessful = exercise.sets.every(set => set.reps >= set.targetReps);
+
+      let status = 'skipped';
+      if (totalRepsLogged > 0) {
+        status = wasSuccessful ? 'successful' : 'failed';
+      }
+      
+      switch (status) {
+        case 'successful': { // --- FIX: Added block scope
           if (exercise.weight > progressData.currentWeight) {
             newPRsAchieved = true;
           }
           const newWeight = progressData.currentWeight + weightIncrement;
-          const updatePayload = { currentWeight: newWeight, failureCount: 0 };
-          progressionPromises.push(updateUserProgressAfterWorkout(currentUser.uid, exercise.progressId, updatePayload));
-        } else {
+          progressionPromises.push(
+            updateUserProgressAfterWorkout(currentUser.uid, exercise.progressId, { currentWeight: newWeight, failureCount: 0 })
+          );
+          break;
+        }
+        case 'failed': { // --- FIX: Added block scope
           const newFailureCount = (progressData.failureCount || 0) + 1;
           if (newFailureCount >= DELOAD_THRESHOLD) {
             const deloadWeight = Math.round((progressData.currentWeight * deloadMultiplier) / 5) * 5;
-            progressionPromises.push(updateUserProgressAfterWorkout(currentUser.uid, exercise.progressId, { currentWeight: deloadWeight, failureCount: 0 }));
+            progressionPromises.push(
+              updateUserProgressAfterWorkout(currentUser.uid, exercise.progressId, { currentWeight: deloadWeight, failureCount: 0 })
+            );
           } else {
-            progressionPromises.push(updateUserProgressAfterWorkout(currentUser.uid, exercise.progressId, { failureCount: newFailureCount }));
+            progressionPromises.push(
+              updateUserProgressAfterWorkout(currentUser.uid, exercise.progressId, { failureCount: newFailureCount })
+            );
           }
+          break;
         }
-      });
-      
-      const workoutToSave = { 
-        ...finalWorkoutState, 
+        case 'skipped':
+          // Do nothing for progression
+          break;
+        default:
+          break;
+      }
+
+      return { ...exercise, progressionStatus: status };
+    });
+
+    try {
+      const workoutToSave = {
+        ...finalWorkoutState,
+        exercises: exercisesWithStatus,
         containsNewPR: newPRsAchieved,
-        workoutType: '5x5' // Added workoutType
+        workoutType: '5x5',
       };
-      
-      await saveWorkoutSession(currentUser.uid, workoutToSave); // Corrected function call
+
+      await saveWorkoutSession(currentUser.uid, workoutToSave);
       await Promise.all(progressionPromises);
 
       localStorage.removeItem(LOCAL_STORAGE_KEY);
       setLiftProgress(null);
       setIsSessionComplete(true);
       setSaveMessage('Workout Saved! Your next workout will be waiting for you when you return.');
-
     } catch (error) {
       setSaveMessage('Error: Could not save workout or apply progression.');
       console.error('Error during save/progression:', error);
