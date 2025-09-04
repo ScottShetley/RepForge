@@ -1,17 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, {useState, useEffect} from 'react';
+import {Link} from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import WorkoutCalendar from '../components/dashboard/WorkoutCalendar';
 import WorkoutModal from '../components/dashboard/WorkoutModal';
-import { useAuth } from '../hooks/useAuth';
-import {
-  getWorkouts,
-  deleteWorkout,
-  getUserProgress,
-  getLastWorkout,
-} from '../services/firebase';
+import {useAuth} from '../hooks/useAuth';
+import {getWorkouts, deleteWorkout} from '../services/firebase';
 import ProgressCharts from '../components/dashboard/ProgressCharts';
-import RecentWorkouts from '../components/dashboard/RecentWorkouts'; // New Import
+import RecentWorkouts from '../components/dashboard/RecentWorkouts';
+import CircuitPerformance from '../components/dashboard/CircuitPerformance';
 
 const Dashboard = () => {
   const [workouts, setWorkouts] = useState ([]);
@@ -27,7 +23,6 @@ const Dashboard = () => {
           setLoading (false);
           return;
         }
-
         try {
           setLoading (true);
           const userWorkouts = await getWorkouts (currentUser.uid);
@@ -39,37 +34,38 @@ const Dashboard = () => {
           setLoading (false);
         }
       };
-
       fetchWorkouts ();
     },
     [currentUser]
   );
 
   const handleDeleteWorkout = async workoutId => {
-    if (!window.confirm('Are you sure you want to delete this workout? This action cannot be undone.')) {
+    if (
+      !window.confirm (
+        'Are you sure you want to delete this workout? This action cannot be undone.'
+      )
+    ) {
       return;
     }
     try {
-      await deleteWorkout (currentUser.uid, workoutId); // Updated to pass UID
-      const userWorkouts = await getWorkouts (currentUser.uid);
-      setWorkouts (userWorkouts);
+      await deleteWorkout (workoutId);
+      setWorkouts (prevWorkouts =>
+        prevWorkouts.filter (w => w.docId !== workoutId)
+      );
     } catch (error) {
-      setError('Failed to delete workout. Please try again.');
-      console.error('Error deleting workout:', error);
+      setError ('Failed to delete workout. Please try again.');
+      console.error ('Error deleting workout:', error);
     }
   };
 
-  const highlightedDates = workouts.map(w =>
-    new Date(w.createdAt.seconds * 1000).toDateString()
+  const highlightedDates = workouts.map (w =>
+    new Date (w.createdAt.seconds * 1000).toDateString ()
   );
 
   const renderContent = () => {
-    if (loading) {
+    if (loading)
       return <p className="text-center text-gray-400">Loading history...</p>;
-    }
-    if (error) {
-      return <p className="text-center text-red-400">{error}</p>;
-    }
+    if (error) return <p className="text-center text-red-400">{error}</p>;
     if (workouts.length === 0 && !loading) {
       return (
         <div className="py-8 text-center text-gray-400">
@@ -78,31 +74,30 @@ const Dashboard = () => {
         </div>
       );
     }
-
     return (
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="space-y-6">
         {/* -- Top Row -- */}
-        <div className="lg:col-span-2">
-          <WorkoutCalendar
-            workouts={workouts}
-            onDateClick={setSelectedWorkout}
-            heatmapDates={highlightedDates}
-          />
-        </div>
-        <div className="lg:col-span-1">
-          <RecentWorkouts
-            workouts={workouts.slice (0, 3)}
-            onSelect={setSelectedWorkout}
-            onDelete={handleDeleteWorkout}
-          />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <WorkoutCalendar
+              workouts={workouts}
+              onDateClick={setSelectedWorkout}
+              heatmapDates={highlightedDates}
+            />
+          </div>
+          <div className="lg:col-span-1">
+            <RecentWorkouts
+              workouts={workouts.slice (0, 3)}
+              onSelect={setSelectedWorkout}
+              onDelete={handleDeleteWorkout}
+            />
+          </div>
         </div>
 
-        {/* -- Bottom Row -- */}
-        <div className="lg:col-span-3">
-          <h3 className="mb-4 text-2xl font-bold text-white">
-            Strength Progression
-          </h3>
+        {/* -- Bottom Row (Charts) -- */}
+        <div className="space-y-6">
           <ProgressCharts workouts={workouts} />
+          <CircuitPerformance workouts={workouts} />
         </div>
       </div>
     );
@@ -120,12 +115,12 @@ const Dashboard = () => {
             + New Workout
           </Link>
         </div>
-        {renderContent()}
+        {renderContent ()}
       </div>
       <WorkoutModal
         workout={selectedWorkout}
         onClose={() => setSelectedWorkout (null)}
-        onDelete={handleDeleteWorkout} // Pass delete handler to modal
+        onDelete={handleDeleteWorkout}
       />
     </MainLayout>
   );
