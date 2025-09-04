@@ -1,5 +1,14 @@
 import React from 'react';
 
+const BadgeIcon = ({ badge }) => {
+  switch (badge) {
+    case 'gold': return <span title="Gold Badge!">🥇</span>;
+    case 'silver': return <span title="Silver Badge!">🥈</span>;
+    case 'bronze': return <span title="Bronze Badge!">🥉</span>;
+    default: return null;
+  }
+};
+
 const WorkoutModal = ({ workout, onClose }) => {
   if (!workout) return null;
 
@@ -11,28 +20,40 @@ const WorkoutModal = ({ workout, onClose }) => {
 
   const renderWorkoutDetails = () => {
     if (workout.workoutType === 'circuit') {
-      const completedExercises = workout.exercises?.filter(ex => ex.completedSets > 0) || [];
-      if (completedExercises.length === 0) {
-        return <p className="text-gray-400">No exercises were completed in this session.</p>;
-      }
+      const completedExercises = workout.exercises?.filter(ex => ex.isLocked) || [];
+      
+      // --- FIX: Safely handle potentially undefined totalTimeInSeconds ---
+      const totalSeconds = workout.totalTimeInSeconds || 0;
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+
       return (
         <div>
           <h4 className="mb-2 text-lg font-semibold text-cyan-300">
+            Performance Summary
+          </h4>
+           <div className="mb-4 space-y-1 text-gray-300">
+            <p><strong>Time:</strong> {minutes}m {seconds}s</p>
+            <p><strong>Exercises Completed:</strong> {workout.exercisesCompleted || 0} / {workout.totalExercises || 14}</p>
+          </div>
+
+          <h4 className="mb-2 text-lg font-semibold text-cyan-300">
             Completed Exercises
           </h4>
-          <ul className="space-y-2">
-            {completedExercises.map((ex, index) => (
-              <li
-                key={index}
-                className="flex justify-between border-b border-gray-700 py-1 text-gray-300"
-              >
-                <span>{ex.name}</span>
-                <span className="font-mono">
-                  {ex.completedSets || 0}/3 sets @ {ex.weight || 0}lbs
-                </span>
-              </li>
-            ))}
-          </ul>
+          {completedExercises.length === 0 ? (
+             <p className="text-gray-400">No exercises were locked in for this session.</p>
+          ) : (
+            <ul className="space-y-2">
+              {completedExercises.map((ex, index) => (
+                <li key={index} className="flex justify-between border-b border-gray-700 py-1 text-gray-300">
+                  <span>{ex.name}</span>
+                  <span className="font-mono">
+                    {ex.completedSets || 0}/3 sets @ {ex.weight || 0}lbs
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       );
     }
@@ -104,9 +125,21 @@ const WorkoutModal = ({ workout, onClose }) => {
         className="flex h-full max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-lg border border-gray-700 bg-gray-800 shadow-xl"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-700 p-4 sm:p-6">
-          <h3 className="text-2xl font-bold text-cyan-400">{workoutTitle}</h3>
-          <span className="text-sm text-gray-400">{workoutDate}</span>
+        <div className="flex-shrink-0 border-b border-gray-700 p-4 sm:p-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="text-2xl font-bold text-cyan-400">{workoutTitle}</h3>
+              <span className="text-sm text-gray-400">{workoutDate}</span>
+            </div>
+            <div className="flex items-center gap-3 text-xl">
+              {workout.workoutType === 'circuit' && (
+                <>
+                  <BadgeIcon badge={workout.timeBadge} />
+                  <BadgeIcon badge={workout.exerciseBadge} />
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="flex-grow overflow-y-auto p-4 sm:p-6">

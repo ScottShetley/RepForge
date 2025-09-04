@@ -6,7 +6,8 @@ import WorkoutModal from '../components/dashboard/WorkoutModal';
 import {useAuth} from '../hooks/useAuth';
 import {getWorkouts, deleteWorkout} from '../services/firebase';
 import ProgressCharts from '../components/dashboard/ProgressCharts';
-import RecentWorkouts from '../components/dashboard/RecentWorkouts'; // New Import
+import RecentWorkouts from '../components/dashboard/RecentWorkouts';
+import CircuitPerformance from '../components/dashboard/CircuitPerformance'; // New Import
 
 const Dashboard = () => {
   const [workouts, setWorkouts] = useState ([]);
@@ -22,7 +23,6 @@ const Dashboard = () => {
           setLoading (false);
           return;
         }
-
         try {
           setLoading (true);
           const userWorkouts = await getWorkouts (currentUser.uid);
@@ -34,7 +34,6 @@ const Dashboard = () => {
           setLoading (false);
         }
       };
-
       fetchWorkouts ();
     },
     [currentUser]
@@ -49,9 +48,10 @@ const Dashboard = () => {
       return;
     }
     try {
-      await deleteWorkout (currentUser.uid, workoutId); // Updated to pass UID
-      const userWorkouts = await getWorkouts (currentUser.uid);
-      setWorkouts (userWorkouts);
+      await deleteWorkout (workoutId);
+      setWorkouts (prevWorkouts =>
+        prevWorkouts.filter (w => w.docId !== workoutId)
+      );
     } catch (error) {
       setError ('Failed to delete workout. Please try again.');
       console.error ('Error deleting workout:', error);
@@ -63,12 +63,9 @@ const Dashboard = () => {
   );
 
   const renderContent = () => {
-    if (loading) {
+    if (loading)
       return <p className="text-center text-gray-400">Loading history...</p>;
-    }
-    if (error) {
-      return <p className="text-center text-red-400">{error}</p>;
-    }
+    if (error) return <p className="text-center text-red-400">{error}</p>;
     if (workouts.length === 0 && !loading) {
       return (
         <div className="py-8 text-center text-gray-400">
@@ -78,29 +75,29 @@ const Dashboard = () => {
       );
     }
     return (
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="space-y-6">
         {/* -- Top Row -- */}
-        <div className="lg:col-span-2">
-          <WorkoutCalendar
-            workouts={workouts}
-            onDateClick={setSelectedWorkout}
-            heatmapDates={highlightedDates}
-          />
-        </div>
-        <div className="lg:col-span-1">
-          <RecentWorkouts
-            workouts={workouts.slice (0, 3)}
-            onSelect={setSelectedWorkout}
-            onDelete={handleDeleteWorkout}
-          />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <WorkoutCalendar
+              workouts={workouts}
+              onDateClick={setSelectedWorkout}
+              heatmapDates={highlightedDates}
+            />
+          </div>
+          <div className="lg:col-span-1">
+            <RecentWorkouts
+              workouts={workouts.slice (0, 3)}
+              onSelect={setSelectedWorkout}
+              onDelete={handleDeleteWorkout}
+            />
+          </div>
         </div>
 
-        {/* -- Bottom Row -- */}
-        <div className="lg:col-span-3">
-          <h3 className="mb-4 text-2xl font-bold text-white">
-            Strength Progression
-          </h3>
+        {/* -- Bottom Row (Charts) -- */}
+        <div className="space-y-6">
           <ProgressCharts workouts={workouts} />
+          <CircuitPerformance workouts={workouts} />
         </div>
       </div>
     );
@@ -110,9 +107,7 @@ const Dashboard = () => {
     <MainLayout>
       <div className="p-4 md:p-6">
         <div className="mb-6 flex items-baseline justify-between">
-          <h2 className="text-3xl font-bold text-white">
-            Workout Dashboard
-          </h2>
+          <h2 className="text-3xl font-bold text-white">Workout Dashboard</h2>
           <Link
             to="/select-workout"
             className="font-bold text-cyan-400 hover:text-cyan-300"
@@ -125,7 +120,7 @@ const Dashboard = () => {
       <WorkoutModal
         workout={selectedWorkout}
         onClose={() => setSelectedWorkout (null)}
-        onDelete={handleDeleteWorkout} // Pass delete handler to modal
+        onDelete={handleDeleteWorkout}
       />
     </MainLayout>
   );

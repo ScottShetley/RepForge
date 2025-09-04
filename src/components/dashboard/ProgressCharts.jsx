@@ -1,6 +1,4 @@
-import React, {useState, useEffect} from 'react';
-import {useAuth} from '../../hooks/useAuth';
-import {getWorkouts} from '../../services/firebase';
+import React, {useState, useMemo} from 'react';
 import {
   LineChart,
   Line,
@@ -12,20 +10,24 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-const processDataForCharts = workouts => {
-  const chartData = {};
-  const coreLifts = [
-    'Squat',
-    'Bench Press',
-    'Seated Cable Row',
-    'Overhead Press',
-    'Deadlift',
-  ];
+const CORE_LIFTS = [
+  'Squat',
+  'Bench Press',
+  'Seated Cable Row',
+  'Overhead Press',
+  'Deadlift',
+];
 
-  coreLifts.forEach (lift => {
-    chartData[lift] = [];
-  });
-  chartData['Circuit Duration'] = []; // Initialize new chart data
+const LIFT_COLORS = {
+  Squat: '#8884d8',
+  'Bench Press': '#82ca9d',
+  'Seated Cable Row': '#ffc658',
+  'Overhead Press': '#ff8042',
+  Deadlift: '#e60000',
+};
+
+const processStrengthDataForChart = workouts => {
+  const dataByDate = {};
 
   [...workouts].reverse ().forEach (session => {
     const date = new Date (
@@ -33,121 +35,103 @@ const processDataForCharts = workouts => {
     ).toLocaleDateString ('en-US', {month: 'numeric', day: 'numeric'});
 
     if (session.workoutType === '5x5' && session.exercises) {
+      if (!dataByDate[date]) {
+        dataByDate[date] = {date};
+      }
       session.exercises.forEach (exercise => {
-        if (coreLifts.includes (exercise.name) && exercise.weight > 0) {
-          chartData[exercise.name].push ({
-            date: date,
-            weight: exercise.weight,
-          });
+        if (CORE_LIFTS.includes (exercise.name) && exercise.weight > 0) {
+          dataByDate[date][exercise.name] = Math.max (
+            dataByDate[date][exercise.name] || 0,
+            exercise.weight
+          );
         }
-      });
-    }
-
-    if (session.workoutType === 'circuit' && session.totalTimeInSeconds > 0) {
-      chartData['Circuit Duration'].push ({
-        date: date,
-        Minutes: parseFloat ((session.totalTimeInSeconds / 60).toFixed (2)),
       });
     }
   });
 
-  return chartData;
+  return Object.values (dataByDate).sort (
+    (a, b) =>
+      new Date (a.date.split ('/').join ('/' + new Date ().getFullYear ())) -
+      new Date (b.date.split ('/').join ('/' + new Date ().getFullYear ()))
+  );
 };
 
-const ProgressCharts = () => {
-  const [chartData, setChartData] = useState (null);
-  const [loading, setLoading] = useState (true);
-  const {currentUser} = useAuth ();
+const ProgressCharts = ({workouts}) => {
+  const [visibleLifts, setVisibleLifts] = useState ({
+    Squat: true,
+    'Bench Press': true,
+    'Seated Cable Row': true,
+    'Overhead Press': true,
+    Deadlift: true,
+  });
 
-  useEffect (
-    () => {
-      if (currentUser) {
-        const fetchData = async () => {
-          setLoading (true);
-          try {
-            const userWorkouts = await getWorkouts (currentUser.uid);
-            const processedData = processDataForCharts (userWorkouts);
-            setChartData (processedData);
-          } catch (error) {
-            console.error (
-              'Failed to fetch or process workout data for charts:',
-              error
-            );
-          } finally {
-            setLoading (false);
-          }
-        };
-        fetchData ();
-      }
-    },
-    [currentUser]
-  );
+  const strengthData = useMemo (() => processStrengthDataForChart (workouts), [
+    workouts,
+  ]);
 
-  if (loading) {
+  const handleLegendClick = e => {
+    const {dataKey} = e;
+    if (Object.prototype.hasOwnProperty.call (visibleLifts, dataKey)) {
+      setVisibleLifts (prevState => ({
+        ...prevState,
+        [dataKey]: !prevState[dataKey],
+      }));
+    }
+  };
+
+  const hasEnoughData = strengthData.length >= 2;
+
+  if (!hasEnoughData) {
     return (
-      <div className="p-4 text-center text-gray-400">Loading chart data...</div>
-    );
-  }
-
-  if (!chartData) {
-    return (
-      <div className="p-4 text-center text-gray-400">
-        Could not load chart data.
+      <div className="rounded-lg bg-gray-900 p-4 shadow-lg">
+        <h3 className="mb-4 text-xl font-bold text-white">
+          Strength Progression
+        </h3>
+        <div className="text-center text-gray-400">
+          Log at least two strength workouts to see your progress chart.
+        </div>
       </div>
     );
   }
 
-  const chartConfigs = {
-    'Circuit Duration': {
-      dataKey: 'Minutes',
-      stroke: '#f59e0b', // Amber-500
-    },
-    default: {
-      dataKey: 'weight',
-      stroke: '#06b6d4', // Cyan-500
-    },
-  };
-
   return (
-    <div className="space-y-8">
-      {Object.entries (chartData).map (([name, data]) => {
-        if (data.length < 2) {
-          return null;
-        }
-        const config = chartConfigs[name] || chartConfigs.default;
-        return (
-          <div key={name} className="rounded-lg bg-gray-900 p-4 shadow-lg">
-            <h3 className="mb-4 text-xl font-bold text-white">
-              {name} Progress
-            </h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart
-                data={data}
-                margin={{top: 5, right: 20, left: -10, bottom: 5}}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#4A5568" />
-                <XAxis dataKey="date" stroke="#A0AEC0" />
-                <YAxis stroke="#A0AEC0" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#1A202C',
-                    border: '1px solid #4A5568',
-                  }}
-                  labelStyle={{color: '#E2E8F0'}}
-                />
-                <Legend wrapperStyle={{color: '#E2E8F0'}} />
-                <Line
-                  type="monotone"
-                  dataKey={config.dataKey}
-                  stroke={config.stroke}
-                  strokeWidth={2}
-                  activeDot={{r: 8}}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        );
-      })}
+    <div className="rounded-lg bg-gray-900 p-4 shadow-lg">
+      <h3 className="mb-4 text-xl font-bold text-white">
+        Strength Progression
+      </h3>
+      <ResponsiveContainer width="100%" height={300}>
+        <LineChart
+          data={strengthData}
+          margin={{top: 5, right: 20, left: -10, bottom: 5}}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke="#4A5568" />
+          <XAxis dataKey="date" stroke="#A0AEC0" />
+          <YAxis stroke="#A0AEC0" />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: '#1A202C',
+              border: '1px solid #4A5568',
+            }}
+            labelStyle={{color: '#E2E8F0'}}
+          />
+          <Legend
+            onClick={handleLegendClick}
+            wrapperStyle={{color: '#E2E8F0', cursor: 'pointer'}}
+          />
+          {CORE_LIFTS.map (lift => (
+            <Line
+              key={lift}
+              type="monotone"
+              dataKey={lift}
+              stroke={LIFT_COLORS[lift]}
+              strokeWidth={2}
+              activeDot={{r: 8}}
+              hide={!visibleLifts[lift]}
+              connectNulls
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
     </div>
   );
 };
