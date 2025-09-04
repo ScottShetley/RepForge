@@ -95,15 +95,42 @@ export const getExercisesByCategory = async (category) => {
 
 // --- WORKOUT SESSION FUNCTIONS ---
 export const saveWorkoutSession = async (userId, workoutData) => {
+  const getBadge = (value, thresholds, lowerIsBetter) => {
+    if (lowerIsBetter) {
+      if (value <= thresholds.gold) return 'gold';
+      if (value <= thresholds.silver) return 'silver';
+      if (value <= thresholds.bronze) return 'bronze';
+    } else {
+      if (value >= thresholds.gold) return 'gold';
+      if (value >= thresholds.silver) return 'silver';
+      if (value >= thresholds.bronze) return 'bronze';
+    }
+    return 'none';
+  };
+
   try {
     const dataToSave = {
       userId: userId,
       ...workoutData,
       createdAt: serverTimestamp(),
     };
-    if (workoutData.workoutType === 'circuit' && workoutData.totalTimeInSeconds !== undefined) {
-      dataToSave.metTimeGoal = workoutData.totalTimeInSeconds <= 1800;
+
+    if (workoutData.workoutType === 'circuit') {
+      const { totalTimeInSeconds, exercisesCompleted } = workoutData;
+      
+      dataToSave.timeBadge = getBadge(
+        totalTimeInSeconds, 
+        { gold: 1800, silver: 2700, bronze: 3600 }, 
+        true
+      );
+      
+      dataToSave.exerciseBadge = getBadge(
+        exercisesCompleted, 
+        { gold: 14, silver: 10, bronze: 7 }, 
+        false
+      );
     }
+
     const docRef = await addDoc(collection(db, "workout_sessions"), dataToSave);
     console.log("Workout saved with ID: ", docRef.id);
     return docRef;
@@ -112,6 +139,7 @@ export const saveWorkoutSession = async (userId, workoutData) => {
     throw new Error("Could not save workout session.");
   }
 };
+
 
 export const getWorkouts = async (userId) => {
   try {
@@ -150,6 +178,7 @@ export const getLastWorkout = async (userId) => {
 };
 
 // --- USER LIFT PROGRESSION FUNCTIONS ---
+// ... (rest of the file remains unchanged)
 const defaultLifts = [
   { exerciseId: 'squat', name: 'Squat', currentWeight: 45, increment: 5, failureCount: 0 },
   { exerciseId: 'bench-press', name: 'Bench Press', currentWeight: 45, increment: 5, failureCount: 0 },

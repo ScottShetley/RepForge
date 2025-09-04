@@ -89,17 +89,21 @@ const CircuitTracker = () => {
 
   const handleFinishWorkout = async () => {
     setIsSaving(true);
-    const completedExercises = Object.values(workoutState).filter(
-      (ex) => (ex.weight > 0 && ex.completedSets > 0) || ex.completedSets > 0
-    );
     
-    if (completedExercises.length === 0) {
-      if (!window.confirm("You haven't tracked any exercises. Are you sure you want to finish without saving?")) {
+    const lockedInExercises = Object.values(workoutState).filter(ex => ex.isLocked);
+    const exercisesWithData = lockedInExercises.map(({ exerciseId, ...data }) => ({
+      id: exerciseId,
+      name: exercises.find(e => e.id === exerciseId)?.name || 'Unknown Exercise',
+      ...data,
+    }));
+    
+    if (lockedInExercises.length === 0) {
+      if (!window.confirm("You haven't locked in any exercises. Are you sure you want to finish without saving?")) {
         setIsSaving(false);
         return;
       }
       localStorage.removeItem(storageKey);
-      navigate('/'); // Corrected Path
+      navigate('/');
       return;
     }
 
@@ -107,17 +111,15 @@ const CircuitTracker = () => {
       name: 'Circuit Training',
       workoutType: 'circuit',
       totalTimeInSeconds: elapsedTime,
-      exercises: completedExercises.map(({ exerciseId, ...data }) => ({
-        id: exerciseId,
-        name: exercises.find(e => e.id === exerciseId)?.name || 'Unknown Exercise',
-        ...data,
-      })),
+      exercisesCompleted: lockedInExercises.length,
+      totalExercises: exercises.length,
+      exercises: exercisesWithData,
     };
 
     try {
       await saveWorkoutSession(currentUser.uid, finalWorkoutData);
       localStorage.removeItem(storageKey);
-      navigate('/'); // Corrected Path
+      navigate('/');
     } catch (err) {
       setError('Failed to save workout. Please try again.');
       console.error(err);
@@ -152,7 +154,7 @@ const CircuitTracker = () => {
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div>
               <h2 className="text-3xl font-bold text-white">Circuit Tracker</h2>
-              <p className="text-gray-400">Complete the circuit and aim for under 30 minutes!</p>
+              <p className="text-gray-400">Track your progress and earn badges for time and completion!</p>
             </div>
             <div className="flex w-full flex-col items-center gap-4 sm:w-auto sm:flex-row">
               <div className="w-32 rounded-md bg-gray-900 py-2 px-4 text-center text-3xl font-monospace font-bold text-cyan-400">
