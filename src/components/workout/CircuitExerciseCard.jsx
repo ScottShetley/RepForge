@@ -67,9 +67,11 @@ const CircuitExerciseCard = ({ exercise, onUpdate, onLockIn, disabled, isLocked,
         </button>
       </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-4">
+      {/* === CHANGED LINE: Replaced rigid grid with a wrapping flex container === */}
+      <div className="mt-4 flex flex-wrap items-end gap-x-4 gap-y-3">
         {/* Weight Input */}
-        <div className="flex flex-col">
+        {/* === CHANGED LINE: Added flex properties for responsive sizing === */}
+        <div className="flex flex-1 basis-24 flex-col">
           <label htmlFor={`weight-${exercise.id}`} className="mb-1 text-sm font-medium text-gray-400">
             Weight (lbs)
           </label>
@@ -87,13 +89,14 @@ const CircuitExerciseCard = ({ exercise, onUpdate, onLockIn, disabled, isLocked,
         {/* Reps Display */}
         <div className="flex flex-col">
           <label className="mb-1 text-sm font-medium text-gray-400">Reps</label>
-          <div className="flex h-10 w-full items-center justify-center rounded-md bg-gray-600 p-2 text-gray-300">
+          <div className="flex h-10 w-full min-w-[4rem] items-center justify-center rounded-md bg-gray-600 p-2 text-gray-300">
             12
           </div>
         </div>
 
         {/* Set Logger */}
-        <div className="flex flex-col">
+        {/* === CHANGED LINE: Added flex properties for responsive sizing === */}
+        <div className="flex flex-1 basis-24 flex-col">
           <label className="mb-1 text-sm font-medium text-gray-400">Sets</label>
           <div className="w-full rounded-md border-2 border-gray-600 bg-gray-700">
              <SetLogger
