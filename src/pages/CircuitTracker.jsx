@@ -41,12 +41,12 @@ const CircuitTracker = () => {
     const savedDraft = localStorage.getItem(storageKey);
     if (savedDraft) {
       const { state, time, active } = JSON.parse(savedDraft);
-      setWorkoutState(state);
+      setWorkoutState(state || {});
       setElapsedTime(time || 0);
       setIsSessionActive(active || false);
     }
-  }, [storageKey]);
-  
+  }, [storageKey]); // <-- FIX: Added storageKey back to the dependency array.
+
   useEffect(() => {
     let interval;
     if (isSessionActive) {
@@ -56,9 +56,9 @@ const CircuitTracker = () => {
     }
     return () => clearInterval(interval);
   }, [isSessionActive]);
-  
+
   useEffect(() => {
-    if (Object.keys(workoutState).length > 0 || isSessionActive) {
+    if (isSessionActive) {
       const draftToSave = {
         state: workoutState,
         time: elapsedTime,
@@ -69,34 +69,51 @@ const CircuitTracker = () => {
   }, [workoutState, elapsedTime, isSessionActive, storageKey]);
 
   const handleUpdate = useCallback((exerciseId, data) => {
-    setWorkoutState(produce(draft => {
+    const nextState = produce(workoutState, draft => {
       if (!draft[exerciseId]) {
         draft[exerciseId] = { exerciseId };
       }
       Object.assign(draft[exerciseId], data);
-    }));
-  }, []);
-  
+    });
+
+    const draftToSave = {
+      state: nextState,
+      time: elapsedTime,
+      active: isSessionActive
+    };
+    localStorage.setItem(storageKey, JSON.stringify(draftToSave));
+
+    setWorkoutState(nextState);
+  }, [workoutState, elapsedTime, isSessionActive, storageKey]);
+
   const handleLockIn = useCallback((exerciseId) => {
-    setWorkoutState(produce(draft => {
+    const nextState = produce(workoutState, draft => {
       if (!draft[exerciseId]) {
         draft[exerciseId] = { exerciseId, isLocked: true };
       } else {
         draft[exerciseId].isLocked = !draft[exerciseId].isLocked;
       }
-    }));
-  }, []);
+    });
+
+    const draftToSave = {
+      state: nextState,
+      time: elapsedTime,
+      active: isSessionActive
+    };
+    localStorage.setItem(storageKey, JSON.stringify(draftToSave));
+    setWorkoutState(nextState);
+  }, [workoutState, elapsedTime, isSessionActive, storageKey]);
 
   const handleFinishWorkout = async () => {
     setIsSaving(true);
-    
+
     const lockedInExercises = Object.values(workoutState).filter(ex => ex.isLocked);
     const exercisesWithData = lockedInExercises.map(({ exerciseId, ...data }) => ({
       id: exerciseId,
       name: exercises.find(e => e.id === exerciseId)?.name || 'Unknown Exercise',
       ...data,
     }));
-    
+
     if (lockedInExercises.length === 0) {
       if (!window.confirm("You haven't locked in any exercises. Are you sure you want to finish without saving?")) {
         setIsSaving(false);

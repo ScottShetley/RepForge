@@ -178,7 +178,6 @@ export const getLastWorkout = async (userId) => {
 };
 
 // --- USER LIFT PROGRESSION FUNCTIONS ---
-// ... (rest of the file remains unchanged)
 const defaultLifts = [
   { exerciseId: 'squat', name: 'Squat', currentWeight: 45, increment: 5, failureCount: 0 },
   { exerciseId: 'bench-press', name: 'Bench Press', currentWeight: 45, increment: 5, failureCount: 0 },
@@ -221,6 +220,16 @@ export const getUserProgress = async (userId) => {
 };
 
 export const updateUserProgressAfterWorkout = async (userId, progressId, updates) => {
+  // --- FIX: Add validation to prevent sending invalid data (undefined or NaN) ---
+  for (const key in updates) {
+    const value = updates[key];
+    if (value === undefined || Number.isNaN(value)) {
+      const errorMessage = `Attempted to save invalid value for lift ${progressId}. Field: ${key}, Value: ${value}`;
+      console.error(errorMessage);
+      throw new Error(errorMessage);
+    }
+  }
+
   const docRef = doc(db, "users", userId, "user_lift_progress", progressId);
   try {
     await updateDoc(docRef, updates);

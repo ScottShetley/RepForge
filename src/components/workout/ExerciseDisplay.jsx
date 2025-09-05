@@ -60,7 +60,9 @@ const ExerciseDisplay = ({
             disabled={isLocked}
             className="rounded bg-cyan-600 px-3 py-1 text-xs font-bold text-white transition-colors hover:bg-cyan-500 disabled:cursor-not-allowed disabled:bg-gray-500"
           >
-            <FaLock className="mr-1 inline" /> Lock it in
+            <FaLock className="mr-1 inline" />
+            {/* --- FIX: Implemented conditional button text --- */}
+            {isLocked ? 'Locked in' : 'Lock it in'}
           </button>
         </div>
       </div>
