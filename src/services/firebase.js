@@ -95,18 +95,15 @@ export const getExercisesByCategory = async (category) => {
 
 // --- WORKOUT SESSION FUNCTIONS ---
 export const saveWorkoutSession = async (userId, workoutData) => {
-  const getBadge = (value, thresholds, lowerIsBetter) => {
-    if (lowerIsBetter) {
-      if (value <= thresholds.gold) return 'gold';
-      if (value <= thresholds.silver) return 'silver';
-      if (value <= thresholds.bronze) return 'bronze';
-    } else {
-      if (value >= thresholds.gold) return 'gold';
-      if (value >= thresholds.silver) return 'silver';
-      if (value >= thresholds.bronze) return 'bronze';
+  if (workoutData.workoutType === 'circuit' && workoutData.exercises) {
+    for (const ex of workoutData.exercises) {
+      if (ex.weight === undefined || ex.completedSets === undefined) {
+        const errorMsg = `Attempted to save circuit workout with invalid exercise data for ${ex.name}.`;
+        console.error(errorMsg, ex);
+        throw new Error(errorMsg);
+      }
     }
-    return 'none';
-  };
+  }
 
   try {
     const dataToSave = {
@@ -116,19 +113,12 @@ export const saveWorkoutSession = async (userId, workoutData) => {
     };
 
     if (workoutData.workoutType === 'circuit') {
-      const { totalTimeInSeconds, exercisesCompleted } = workoutData;
+      const { totalTimeInSeconds, exercisesCompleted, totalExercises } = workoutData;
       
-      dataToSave.timeBadge = getBadge(
-        totalTimeInSeconds, 
-        { gold: 1800, silver: 2700, bronze: 3600 }, 
-        true
-      );
-      
-      dataToSave.exerciseBadge = getBadge(
-        exercisesCompleted, 
-        { gold: 14, silver: 10, bronze: 7 }, 
-        false
-      );
+      const isComplete = exercisesCompleted === totalExercises;
+      const timeGoalMet = totalTimeInSeconds <= 1800; // 30 minutes
+
+      dataToSave.completionBadge = isComplete && timeGoalMet ? 'gold' : 'none';
     }
 
     const docRef = await addDoc(collection(db, "workout_sessions"), dataToSave);
@@ -220,7 +210,6 @@ export const getUserProgress = async (userId) => {
 };
 
 export const updateUserProgressAfterWorkout = async (userId, progressId, updates) => {
-  // --- FIX: Add validation to prevent sending invalid data (undefined or NaN) ---
   for (const key in updates) {
     const value = updates[key];
     if (value === undefined || Number.isNaN(value)) {
@@ -238,6 +227,31 @@ export const updateUserProgressAfterWorkout = async (userId, progressId, updates
     throw new Error("Could not update lift progress.");
   }
 };
+
+// --- NEW: USER CIRCUIT PROGRESSION FUNCTIONS ---
+export const getCircuitProgress = async (userId) => {
+  const progressCol = collection(db, "users", userId, "circuit_progress");
+  const q = query(progressCol);
+  const querySnapshot = await getDocs(q);
+  if (querySnapshot.empty) return {};
+  const circuitProgress = {};
+  querySnapshot.docs.forEach(doc => {
+    circuitProgress[doc.id] = doc.data(); 
+  });
+  return circuitProgress;
+};
+
+export const updateCircuitProgress = async (userId, progressUpdates) => {
+  if (Object.keys(progressUpdates).length === 0) return;
+  const progressColRef = collection(db, 'users', userId, 'circuit_progress');
+  const batch = writeBatch(db);
+  for (const exerciseId in progressUpdates) {
+    const docRef = doc(progressColRef, exerciseId);
+    batch.set(docRef, progressUpdates[exerciseId], { merge: true });
+  }
+  await batch.commit();
+};
+
 
 // --- USER SETTINGS FUNCTIONS ---
 const defaultSettings = {

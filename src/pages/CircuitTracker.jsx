@@ -4,7 +4,7 @@ import { produce } from 'immer';
 import MainLayout from '../components/layout/MainLayout';
 import CircuitExerciseCard from '../components/workout/CircuitExerciseCard';
 import { useAuth } from '../hooks/useAuth';
-import { getExercisesByCategory, saveWorkoutSession } from '../services/firebase';
+import { getExercisesByCategory, saveWorkoutSession, getCircuitProgress, updateCircuitProgress } from '../services/firebase';
 
 const formatTime = (seconds) => {
   const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -12,7 +12,6 @@ const formatTime = (seconds) => {
   return `${mins}:${secs}`;
 };
 
-// Defined based on the Master Doc
 const UPPER_BODY_CIRCUIT_TEMPLATE = [
   { id: 'chest-press-machine', name: 'Chest Press Machine' },
   { id: 'shoulder-press-machine', name: 'Shoulder Press Machine' },
@@ -29,9 +28,11 @@ const LOWER_BODY_CIRCUIT_TEMPLATE = [
   { id: 'glute-kickback-machine', name: 'Glute Kickback Machine' },
 ];
 
+const PROGRESSION_INCREMENT = 5; // 5 lbs increment for circuit exercises
 
 const CircuitTracker = () => {
   const [exercises, setExercises] = useState([]);
+  const [circuitProgress, setCircuitProgress] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isSessionActive, setIsSessionActive] = useState(false);
@@ -43,12 +44,13 @@ const CircuitTracker = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const circuitType = location.state?.circuitType || 'fullBody'; // Default to fullBody
+  const circuitType = location.state?.circuitType || 'fullBody';
   
   const storageKey = `inProgressCircuit_${circuitType}_${currentUser?.uid}`;
 
   useEffect(() => {
-    const fetchExercises = async () => {
+    const loadWorkoutData = async () => {
+      if (!currentUser?.uid) return;
       setLoading(true);
       try {
         let loadedExercises;
@@ -68,22 +70,26 @@ const CircuitTracker = () => {
             break;
         }
         setExercises(loadedExercises);
-      } catch {
-        setError('Failed to load circuit exercises.');
+
+        const progress = await getCircuitProgress(currentUser.uid);
+        setCircuitProgress(progress);
+
+        const savedDraft = localStorage.getItem(storageKey);
+        if (savedDraft) {
+          const { state, time, active } = JSON.parse(savedDraft);
+          setWorkoutState(state || {});
+          setElapsedTime(time || 0);
+          setIsSessionActive(active || false);
+        }
+      } catch (err) {
+        console.error("Error loading workout data:", err);
+        setError('Failed to load workout data.');
       } finally {
         setLoading(false);
       }
     };
-    fetchExercises();
-
-    const savedDraft = localStorage.getItem(storageKey);
-    if (savedDraft) {
-      const { state, time, active } = JSON.parse(savedDraft);
-      setWorkoutState(state || {});
-      setElapsedTime(time || 0);
-      setIsSessionActive(active || false);
-    }
-  }, [circuitType, storageKey]);
+    loadWorkoutData();
+  }, [currentUser?.uid, circuitType, storageKey]);
 
   useEffect(() => {
     let interval;
@@ -107,54 +113,74 @@ const CircuitTracker = () => {
   }, [workoutState, elapsedTime, isSessionActive, storageKey]);
 
   const handleUpdate = useCallback((exerciseId, data) => {
-    setWorkoutState(produce(workoutState, draft => {
+    setWorkoutState(produce(draft => {
       if (!draft[exerciseId]) {
         draft[exerciseId] = { exerciseId };
       }
       Object.assign(draft[exerciseId], data);
     }));
-  }, [workoutState]);
+  }, []);
 
   const handleLockIn = useCallback((exerciseId) => {
-    setWorkoutState(produce(workoutState, draft => {
+    setWorkoutState(produce(draft => {
       if (!draft[exerciseId]) {
         draft[exerciseId] = { exerciseId, isLocked: true };
       } else {
         draft[exerciseId].isLocked = !draft[exerciseId].isLocked;
       }
     }));
-  }, [workoutState]);
+  }, []);
 
   const handleFinishWorkout = async () => {
     setIsSaving(true);
-    const lockedInExercises = Object.values(workoutState).filter(ex => ex.isLocked);
-    const exercisesWithData = lockedInExercises.map(({ exerciseId, ...data }) => ({
-      id: exerciseId,
-      name: exercises.find(e => e.id === exerciseId)?.name || 'Unknown Exercise',
-      ...data,
-    }));
+    const lockedInExercisesData = Object.values(workoutState).filter(ex => ex.isLocked);
 
-    if (lockedInExercises.length === 0) {
+    if (lockedInExercisesData.length === 0) {
       if (!window.confirm("You haven't locked in any exercises. Are you sure you want to finish without saving?")) {
-        setIsSaving(false);
-        return;
+        setIsSaving(false); return;
       }
       localStorage.removeItem(storageKey);
       navigate('/');
       return;
     }
 
+    const newProgressUpdates = {};
+    const detailedExercisesForLog = [];
+
+    lockedInExercisesData.forEach(exState => {
+      const exerciseDef = exercises.find(e => e.id === exState.exerciseId);
+      if (!exerciseDef) return;
+
+      const performedWeight = Number(exState.weight) || 0;
+      
+      detailedExercisesForLog.push({
+        id: exState.exerciseId,
+        name: exerciseDef.name,
+        weight: performedWeight,
+        completedSets: exState.completedSets || 0,
+      });
+
+      // Progression logic: 3 completed sets to progress
+      if (exState.completedSets === 3) {
+        newProgressUpdates[exState.exerciseId] = {
+          currentWeight: performedWeight + PROGRESSION_INCREMENT
+        };
+      }
+    });
+
     const finalWorkoutData = {
       name: circuitTitle,
       workoutType: 'circuit',
       totalTimeInSeconds: elapsedTime,
-      exercisesCompleted: lockedInExercises.length,
+      exercisesCompleted: lockedInExercisesData.length,
       totalExercises: exercises.length,
-      exercises: exercisesWithData,
+      exercises: detailedExercisesForLog,
     };
 
     try {
       await saveWorkoutSession(currentUser.uid, finalWorkoutData);
+      await updateCircuitProgress(currentUser.uid, newProgressUpdates);
+      
       localStorage.removeItem(storageKey);
       navigate('/');
     } catch (err) {
@@ -165,7 +191,7 @@ const CircuitTracker = () => {
   };
 
   const renderContent = () => {
-    if (loading) return <p className="text-center text-gray-400">Loading exercises...</p>;
+    if (loading) return <p className="text-center text-gray-400">Loading your progress...</p>;
     if (error) return <p className="text-center text-red-500">{error}</p>;
     return (
       <div className="space-y-4">
@@ -173,6 +199,7 @@ const CircuitTracker = () => {
           <CircuitExerciseCard
             key={ex.id}
             exercise={ex}
+            targetWeight={circuitProgress[ex.id]?.currentWeight}
             onUpdate={(data) => handleUpdate(ex.id, data)}
             onLockIn={() => handleLockIn(ex.id)}
             disabled={!isSessionActive}
@@ -191,7 +218,7 @@ const CircuitTracker = () => {
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div>
               <h2 className="text-3xl font-bold text-white">{circuitTitle}</h2>
-              <p className="text-gray-400">Track your progress and earn badges for time and completion!</p>
+              <p className="text-gray-400">Lock in your completed exercises to save progress.</p>
             </div>
             <div className="flex w-full flex-col items-center gap-4 sm:w-auto sm:flex-row">
               <div className="w-32 rounded-md bg-gray-900 py-2 px-4 text-center text-3xl font-monospace font-bold text-cyan-400">
