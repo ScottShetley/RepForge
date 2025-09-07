@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { produce } from 'immer';
 import MainLayout from '../components/layout/MainLayout';
 import CircuitExerciseCard from '../components/workout/CircuitExerciseCard';
@@ -12,6 +12,24 @@ const formatTime = (seconds) => {
   return `${mins}:${secs}`;
 };
 
+// Defined based on the Master Doc
+const UPPER_BODY_CIRCUIT_TEMPLATE = [
+  { id: 'chest-press-machine', name: 'Chest Press Machine' },
+  { id: 'shoulder-press-machine', name: 'Shoulder Press Machine' },
+  { id: 'bicep-curl-machine', name: 'Bicep Curl Machine' },
+  { id: 'triceps-extension-machine', name: 'Triceps Extension Machine' },
+  { id: 'abdominal-crunch-machine', name: 'Abdominal Crunch Machine' },
+];
+
+const LOWER_BODY_CIRCUIT_TEMPLATE = [
+  { id: 'leg-extension-machine', name: 'Leg Extension Machine' },
+  { id: 'seated-leg-curl', name: 'Seated Leg Curl' },
+  { id: 'calf-raise-machine', name: 'Calf Raise Machine' },
+  { id: 'hip-adduction-machine', name: 'Hip Adduction Machine' },
+  { id: 'glute-kickback-machine', name: 'Glute Kickback Machine' },
+];
+
+
 const CircuitTracker = () => {
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,16 +38,36 @@ const CircuitTracker = () => {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [workoutState, setWorkoutState] = useState({});
   const [isSaving, setIsSaving] = useState(false);
+  const [circuitTitle, setCircuitTitle] = useState('Circuit Tracker');
 
   const { currentUser } = useAuth();
   const navigate = useNavigate();
-  const storageKey = `inProgressCircuit_${currentUser?.uid}`;
+  const location = useLocation();
+  const circuitType = location.state?.circuitType || 'fullBody'; // Default to fullBody
+  
+  const storageKey = `inProgressCircuit_${circuitType}_${currentUser?.uid}`;
 
   useEffect(() => {
     const fetchExercises = async () => {
+      setLoading(true);
       try {
-        const circuitExercises = await getExercisesByCategory('Circuit');
-        setExercises(circuitExercises);
+        let loadedExercises;
+        switch (circuitType) {
+          case 'upperBody':
+            setCircuitTitle('Upper Body Circuit');
+            loadedExercises = UPPER_BODY_CIRCUIT_TEMPLATE;
+            break;
+          case 'lowerBody':
+            setCircuitTitle('Lower Body Circuit');
+            loadedExercises = LOWER_BODY_CIRCUIT_TEMPLATE;
+            break;
+          case 'fullBody':
+          default:
+            setCircuitTitle('Full Body Circuit');
+            loadedExercises = await getExercisesByCategory('Circuit');
+            break;
+        }
+        setExercises(loadedExercises);
       } catch {
         setError('Failed to load circuit exercises.');
       } finally {
@@ -45,7 +83,7 @@ const CircuitTracker = () => {
       setElapsedTime(time || 0);
       setIsSessionActive(active || false);
     }
-  }, [storageKey]); // <-- FIX: Added storageKey back to the dependency array.
+  }, [circuitType, storageKey]);
 
   useEffect(() => {
     let interval;
@@ -69,44 +107,26 @@ const CircuitTracker = () => {
   }, [workoutState, elapsedTime, isSessionActive, storageKey]);
 
   const handleUpdate = useCallback((exerciseId, data) => {
-    const nextState = produce(workoutState, draft => {
+    setWorkoutState(produce(workoutState, draft => {
       if (!draft[exerciseId]) {
         draft[exerciseId] = { exerciseId };
       }
       Object.assign(draft[exerciseId], data);
-    });
-
-    const draftToSave = {
-      state: nextState,
-      time: elapsedTime,
-      active: isSessionActive
-    };
-    localStorage.setItem(storageKey, JSON.stringify(draftToSave));
-
-    setWorkoutState(nextState);
-  }, [workoutState, elapsedTime, isSessionActive, storageKey]);
+    }));
+  }, [workoutState]);
 
   const handleLockIn = useCallback((exerciseId) => {
-    const nextState = produce(workoutState, draft => {
+    setWorkoutState(produce(workoutState, draft => {
       if (!draft[exerciseId]) {
         draft[exerciseId] = { exerciseId, isLocked: true };
       } else {
         draft[exerciseId].isLocked = !draft[exerciseId].isLocked;
       }
-    });
-
-    const draftToSave = {
-      state: nextState,
-      time: elapsedTime,
-      active: isSessionActive
-    };
-    localStorage.setItem(storageKey, JSON.stringify(draftToSave));
-    setWorkoutState(nextState);
-  }, [workoutState, elapsedTime, isSessionActive, storageKey]);
+    }));
+  }, [workoutState]);
 
   const handleFinishWorkout = async () => {
     setIsSaving(true);
-
     const lockedInExercises = Object.values(workoutState).filter(ex => ex.isLocked);
     const exercisesWithData = lockedInExercises.map(({ exerciseId, ...data }) => ({
       id: exerciseId,
@@ -125,7 +145,7 @@ const CircuitTracker = () => {
     }
 
     const finalWorkoutData = {
-      name: 'Circuit Training',
+      name: circuitTitle,
       workoutType: 'circuit',
       totalTimeInSeconds: elapsedTime,
       exercisesCompleted: lockedInExercises.length,
@@ -170,7 +190,7 @@ const CircuitTracker = () => {
         <div className="mb-6 rounded-lg bg-gray-800 p-4 shadow-lg">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div>
-              <h2 className="text-3xl font-bold text-white">Circuit Tracker</h2>
+              <h2 className="text-3xl font-bold text-white">{circuitTitle}</h2>
               <p className="text-gray-400">Track your progress and earn badges for time and completion!</p>
             </div>
             <div className="flex w-full flex-col items-center gap-4 sm:w-auto sm:flex-row">

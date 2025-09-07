@@ -51,8 +51,8 @@ const WorkoutSelection = () => {
     navigate ('/workout', {state: {workoutId}});
   };
 
-  const handleSelectCircuit = () => {
-    navigate ('/circuit-tracker');
+  const handleSelectCircuit = circuitType => {
+    navigate ('/circuit-tracker', {state: {circuitType}});
   };
 
   if (isLoading) {
@@ -83,10 +83,22 @@ const WorkoutSelection = () => {
             onClick={() => handleSelectRepForge ('workoutB')}
           />
           <WorkoutCard
-            title="Circuit Training"
-            description="A fast-paced, machine-based workout targeting multiple muscle groups."
+            title="Full Body Circuit"
+            description="A comprehensive, machine-based workout targeting all major muscle groups."
             isRecommended={false}
-            onClick={handleSelectCircuit}
+            onClick={() => handleSelectCircuit ('fullBody')}
+          />
+          <WorkoutCard
+            title="Upper Body Circuit"
+            description="Complements Workout A with targeted upper body machine exercises."
+            isRecommended={false}
+            onClick={() => handleSelectCircuit ('upperBody')}
+          />
+          <WorkoutCard
+            title="Lower Body Circuit"
+            description="Complements Workout B with targeted lower body machine exercises."
+            isRecommended={false}
+            onClick={() => handleSelectCircuit ('lowerBody')}
           />
         </div>
       </div>
