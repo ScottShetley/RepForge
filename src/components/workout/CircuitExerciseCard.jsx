@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { produce } from 'immer';
 import { FaLock } from 'react-icons/fa';
 
@@ -20,11 +20,19 @@ const SetLogger = ({ count, completedCount, onToggle, disabled }) => {
   );
 };
 
-const CircuitExerciseCard = ({ exercise, onUpdate, onLockIn, disabled, isLocked, initialData }) => {
+const CircuitExerciseCard = ({ exercise, onUpdate, onLockIn, disabled, isLocked, initialData, targetWeight }) => {
   const [state, setState] = useState({
-    weight: initialData?.weight || '',
+    weight: initialData?.weight || targetWeight || '',
     completedSets: initialData?.completedSets || 0,
   });
+  
+  // Effect to update weight if targetWeight loads after initial render
+  useEffect(() => {
+    if (!initialData?.weight && targetWeight) {
+        setState(s => ({...s, weight: targetWeight}));
+    }
+  }, [targetWeight, initialData?.weight]);
+
 
   const handleWeightChange = (e) => {
     const newWeight = e.target.value;
@@ -44,7 +52,7 @@ const CircuitExerciseCard = ({ exercise, onUpdate, onLockIn, disabled, isLocked,
       }
     });
     setState(newState);
-    onUpdate({ weight: Number(newState.weight) || 0, completedSets: newState.completedSets });
+    onUpdate({ weight: Number(state.weight) || 0, completedSets: newState.completedSets });
   };
 
   const effectiveDisabled = disabled || isLocked;
@@ -67,14 +75,12 @@ const CircuitExerciseCard = ({ exercise, onUpdate, onLockIn, disabled, isLocked,
         </button>
       </div>
 
-      {/* === CHANGED LINE: Replaced rigid grid with a wrapping flex container === */}
       <div className="mt-4 flex flex-wrap items-end gap-x-4 gap-y-3">
-        {/* Weight Input */}
-        {/* === CHANGED LINE: Added flex properties for responsive sizing === */}
         <div className="flex flex-1 basis-24 flex-col">
           <label htmlFor={`weight-${exercise.id}`} className="mb-1 text-sm font-medium text-gray-400">
             Weight (lbs)
           </label>
+           {targetWeight && <p className="text-xs text-cyan-400 mb-1">Target: {targetWeight} lbs</p>}
           <input
             id={`weight-${exercise.id}`}
             type="number"
@@ -86,7 +92,6 @@ const CircuitExerciseCard = ({ exercise, onUpdate, onLockIn, disabled, isLocked,
           />
         </div>
 
-        {/* Reps Display */}
         <div className="flex flex-col">
           <label className="mb-1 text-sm font-medium text-gray-400">Reps</label>
           <div className="flex h-10 w-full min-w-[4rem] items-center justify-center rounded-md bg-gray-600 p-2 text-gray-300">
@@ -94,8 +99,6 @@ const CircuitExerciseCard = ({ exercise, onUpdate, onLockIn, disabled, isLocked,
           </div>
         </div>
 
-        {/* Set Logger */}
-        {/* === CHANGED LINE: Added flex properties for responsive sizing === */}
         <div className="flex flex-1 basis-24 flex-col">
           <label className="mb-1 text-sm font-medium text-gray-400">Sets</label>
           <div className="w-full rounded-md border-2 border-gray-600 bg-gray-700">
