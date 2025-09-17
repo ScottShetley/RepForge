@@ -142,6 +142,54 @@ const CircuitTracker = () => {
         );
     }, []);
 
+  const handleFinishWorkout = async () => {
+    setIsSaving(true);
+    const lockedInExercisesData = Object.values(workoutState).filter(ex => ex.isLocked);
+
+    if (lockedInExercisesData.length === 0) {
+      if (!window.confirm("You haven't locked in any exercises. Are you sure you want to finish without saving?")) {
+        setIsSaving(false); return;
+      }
+      localStorage.removeItem(storageKey);
+      navigate('/');
+      return;
+    }
+
+    const newProgressUpdates = {};
+    const detailedExercisesForLog = [];
+
+    lockedInExercisesData.forEach(exState => {
+      const exerciseDef = exercises.find(e => e.id === exState.exerciseId);
+      if (!exerciseDef) return;
+
+      const performedWeight = Number(exState.weight) || 0;
+      
+      detailedExercisesForLog.push({
+        id: exState.exerciseId,
+        name: exerciseDef.name,
+        weight: performedWeight,
+        completedSets: exState.completedSets || 0,
+      });
+
+      if (exState.completedSets === 3) {
+        newProgressUpdates[exState.exerciseId] = {
+          currentWeight: performedWeight + PROGRESSION_INCREMENT
+        };
+      }
+    });
+
+    const timeTakenString = `${Math.floor(elapsedTime / 60)}m ${elapsedTime % 60}s`;
+
+    const finalWorkoutData = {
+      name: circuitTitle,
+      workoutType: 'circuit',
+      duration: elapsedTime,
+      timeTaken: timeTakenString,
+      exercisesCompleted: lockedInExercisesData.length,
+      totalExercises: exercises.length,
+      exercises: detailedExercisesForLog,
+      createdAt: new Date(),
+    };
     const handleFinishWorkout = async () => {
         setIsSaving(true);
         const exercisesCompleted = Object.values(workoutState).filter(ex => ex.isLocked).length;
@@ -170,6 +218,21 @@ const CircuitTracker = () => {
             createdAt: new Date(),
         };
 
+    try {
+      // --- FIX: This now uses the correct two-argument function call ---
+      await saveWorkoutSession(currentUser.uid, finalWorkoutData);
+      if (Object.keys(newProgressUpdates).length > 0) {
+        await updateCircuitProgress(currentUser.uid, newProgressUpdates);
+      }
+      
+      localStorage.removeItem(storageKey);
+      navigate('/');
+    } catch (err) {
+      setError('Failed to save workout. Please try again.');
+      console.error(err);
+      setIsSaving(false);
+    }
+  };
         try {
             await saveWorkoutSession(currentUser.uid, workoutData);
             await updateCircuitProgress(currentUser.uid, workoutState);

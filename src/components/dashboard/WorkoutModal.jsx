@@ -45,13 +45,11 @@ const WorkoutModal = ({ workout, onClose }) => {
   };
 
   const renderWorkoutDetails = () => {
-    if (workout.workoutType === 'circuit') {
-      // --- FIX #1: Correctly displays completed exercises for circuits ---
-      const completedExercises = workout.exercises?.slice(0, workout.exercisesCompleted) || [];
+    const completedExercises = workout.exercises?.slice(0, workout.exercisesCompleted) || [];
 
+    if (workout.workoutType === 'circuit') {
       return (
         <div className="space-y-6">
-          {/* -- Performance Summary -- */}
           <div>
             <h4 className="mb-3 text-lg font-bold text-white">Performance Summary</h4>
             <div className="grid grid-cols-2 gap-4 rounded-lg bg-gray-900 p-4">
@@ -62,13 +60,12 @@ const WorkoutModal = ({ workout, onClose }) => {
               <div>
                 <p className="text-sm text-gray-400">Exercises Completed</p>
                 <p className="text-xl font-semibold text-white">
-                  {workout.exercisesCompleted} / {workout.exercises?.length || 0}
+                  {workout.exercisesCompleted} / {workout.totalExercises || workout.exercises?.length || 0}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* -- Completed Exercises -- */}
           <div>
             <h4 className="mb-3 text-lg font-bold text-white">Completed Exercises</h4>
             <div className="space-y-3">
@@ -88,7 +85,7 @@ const WorkoutModal = ({ workout, onClose }) => {
       );
     }
 
-    // --- Renders StrongLifts 5x5 Details ---
+    // Default renderer for 5x5 and any other workout type
     return (
       <div className="space-y-4">
         {workout.exercises?.map((exercise, index) => (
@@ -98,9 +95,8 @@ const WorkoutModal = ({ workout, onClose }) => {
               {exercise.isNewPR && <span title="New Personal Record!">🥇</span>}
             </div>
             <p className="text-md text-gray-300">Weight: {exercise.weight}lbs</p>
-            {/* --- FIX #2: Correctly maps over the sets object array --- */}
             <p className="text-sm text-gray-400">
-              Sets: {exercise.sets.map(set => set.reps).join(', ')}
+              Sets: {Array.isArray(exercise.sets) ? exercise.sets.map(set => set?.reps || set).join(', ') : 'N/A'}
             </p>
             {renderProgressionStatus(exercise)}
           </div>
