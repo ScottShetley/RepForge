@@ -18,10 +18,8 @@ const WorkoutModal = ({ workout, onClose }) => {
 
   const workoutTitle = workout.workoutType === 'circuit' ? 'Circuit Training' : workout.name;
 
-  // --- NEW: Helper function to render the progression status ---
   const renderProgressionStatus = (exercise) => {
     if (!exercise.progressionStatus) return null;
-
     switch (exercise.progressionStatus) {
       case 'successful':
         return (
@@ -47,98 +45,62 @@ const WorkoutModal = ({ workout, onClose }) => {
   };
 
   const renderWorkoutDetails = () => {
-    if (workout.workoutType === 'circuit') {
-      const completedExercises = workout.exercises?.filter(ex => ex.isLocked) || [];
-      
-      // --- FIX: Safely handle potentially undefined totalTimeInSeconds ---
-      const totalSeconds = workout.totalTimeInSeconds || 0;
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
+    const completedExercises = workout.exercises?.slice(0, workout.exercisesCompleted) || [];
 
+    if (workout.workoutType === 'circuit') {
       return (
-        <div>
-          <h4 className="mb-2 text-lg font-semibold text-cyan-300">
-            Performance Summary
-          </h4>
-           <div className="mb-4 space-y-1 text-gray-300">
-            <p><strong>Time:</strong> {minutes}m {seconds}s</p>
-            <p><strong>Exercises Completed:</strong> {workout.exercisesCompleted || 0} / {workout.totalExercises || 14}</p>
+        <div className="space-y-6">
+          <div>
+            <h4 className="mb-3 text-lg font-bold text-white">Performance Summary</h4>
+            <div className="grid grid-cols-2 gap-4 rounded-lg bg-gray-900 p-4">
+              <div>
+                <p className="text-sm text-gray-400">Time</p>
+                <p className="text-xl font-semibold text-white">{workout.timeTaken || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">Exercises Completed</p>
+                <p className="text-xl font-semibold text-white">
+                  {workout.exercisesCompleted} / {workout.totalExercises || workout.exercises?.length || 0}
+                </p>
+              </div>
+            </div>
           </div>
 
-          <h4 className="mb-2 text-lg font-semibold text-cyan-300">
-            Completed Exercises
-          </h4>
-          {completedExercises.length === 0 ? (
-             <p className="text-gray-400">No exercises were locked in for this session.</p>
-          ) : (
-            <ul className="space-y-2">
-              {completedExercises.map((ex, index) => (
-                <li key={index} className="flex justify-between border-b border-gray-700 py-1 text-gray-300">
-                  <span>{ex.name}</span>
-                  <span className="font-mono">
-                    {ex.completedSets || 0}/3 sets @ {ex.weight || 0}lbs
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <div>
+            <h4 className="mb-3 text-lg font-bold text-white">Completed Exercises</h4>
+            <div className="space-y-3">
+              {completedExercises.length > 0 ? (
+                completedExercises.map((ex, index) => (
+                  <div key={index} className="rounded-md bg-gray-900 p-3">
+                    <p className="font-semibold text-white">{ex.name}</p>
+                    <p className="text-sm text-gray-400">Weight: {ex.weight}lbs</p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-400">No exercises were locked in for this session.</p>
+              )}
+            </div>
+          </div>
         </div>
       );
     }
 
-    const coreLifts = workout.exercises || [];
-    const completedSubsets = workout.subSetWorkout?.filter(ex => {
-       if (Array.isArray(ex.sets)) {
-        return ex.weight > 0 && ex.sets.some(set => set.reps > 0);
-      }
-      return false;
-    }) || [];
-
+    // Default renderer for 5x5 and any other workout type
     return (
       <div className="space-y-4">
-        {coreLifts.length > 0 && (
-          <div>
-            <h4 className="mb-2 text-lg font-semibold text-cyan-300">Core Lifts</h4>
-            <ul className="space-y-2">
-              {coreLifts.map((ex, index) => {
-                const completedSetsCount = ex.sets.filter(s => s.reps >= s.targetReps).length;
-                return (
-                  <li key={index} className="border-b border-gray-700 py-2 text-gray-300">
-                    <div className="flex justify-between">
-                      {/* --- MODIFIED: Exercise name and status are grouped --- */}
-                      <div>
-                        <span>{ex.name}</span>
-                        {renderProgressionStatus(ex)}
-                      </div>
-                      <span className="font-mono">
-                        {completedSetsCount}/{ex.sets.length} sets @ {ex.weight}lbs
-                      </span>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+        {workout.exercises?.map((exercise, index) => (
+          <div key={index} className="rounded-lg bg-gray-900 p-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-lg font-bold text-white">{exercise.name}</h4>
+              {exercise.isNewPR && <span title="New Personal Record!">🥇</span>}
+            </div>
+            <p className="text-md text-gray-300">Weight: {exercise.weight}lbs</p>
+            <p className="text-sm text-gray-400">
+              Sets: {Array.isArray(exercise.sets) ? exercise.sets.map(set => set?.reps || set).join(', ') : 'N/A'}
+            </p>
+            {renderProgressionStatus(exercise)}
           </div>
-        )}
-
-        {completedSubsets.length > 0 && (
-          <div>
-            <h4 className="mb-2 text-lg font-semibold text-cyan-300">Subset Work</h4>
-            <ul className="space-y-2">
-              {completedSubsets.map((subEx, subIndex) => {
-                const completedSetsCount = subEx.sets.filter(s => s.reps > 0).length;
-                return (
-                  <li key={subIndex} className="flex justify-between border-b border-gray-700 py-1 text-gray-300">
-                    <span>{subEx.name}</span>
-                    <span className="font-mono">
-                      {completedSetsCount}/{subEx.sets.length} sets @ {subEx.weight || '0'}lbs
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
+        ))}
       </div>
     );
   };
@@ -176,7 +138,7 @@ const WorkoutModal = ({ workout, onClose }) => {
         <div className="flex-shrink-0 border-t border-gray-700 p-4 text-right sm:p-6">
           <button
             onClick={onClose}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-base font-bold text-white transition-colors hover:bg-indigo-700"
+            className="rounded-md bg-cyan-500 px-4 py-2 font-semibold text-white hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-gray-800"
           >
             Close
           </button>

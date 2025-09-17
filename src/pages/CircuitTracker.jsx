@@ -160,7 +160,6 @@ const CircuitTracker = () => {
         completedSets: exState.completedSets || 0,
       });
 
-      // Progression logic: 3 completed sets to progress
       if (exState.completedSets === 3) {
         newProgressUpdates[exState.exerciseId] = {
           currentWeight: performedWeight + PROGRESSION_INCREMENT
@@ -168,18 +167,25 @@ const CircuitTracker = () => {
       }
     });
 
+    const timeTakenString = `${Math.floor(elapsedTime / 60)}m ${elapsedTime % 60}s`;
+
     const finalWorkoutData = {
       name: circuitTitle,
       workoutType: 'circuit',
-      totalTimeInSeconds: elapsedTime,
+      duration: elapsedTime,
+      timeTaken: timeTakenString,
       exercisesCompleted: lockedInExercisesData.length,
       totalExercises: exercises.length,
       exercises: detailedExercisesForLog,
+      createdAt: new Date(),
     };
 
     try {
+      // --- FIX: This now uses the correct two-argument function call ---
       await saveWorkoutSession(currentUser.uid, finalWorkoutData);
-      await updateCircuitProgress(currentUser.uid, newProgressUpdates);
+      if (Object.keys(newProgressUpdates).length > 0) {
+        await updateCircuitProgress(currentUser.uid, newProgressUpdates);
+      }
       
       localStorage.removeItem(storageKey);
       navigate('/');

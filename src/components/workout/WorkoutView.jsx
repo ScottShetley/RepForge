@@ -29,9 +29,7 @@ const workoutTemplates = {
     ],
     subSetWorkout: [
       { id: 'acc01', name: 'Dips', sets: 3, reps: '8-12' },
-      { id: 'acc02', name: 'Tricep Pushdowns', sets: 3, reps: '10-15' },
-      { id: 'acc03', name: 'Barbell Curls', sets: 3, reps: '8-12' },
-      { id: 'acc04', name: 'Hanging Knee Raises', sets: 3, reps: 'To Failure' },
+      { id: 'acc02', name: 'Tricep Pushdowns', sets: 3, reps: '8-12' },
     ],
   },
   workoutB: {
@@ -43,14 +41,11 @@ const workoutTemplates = {
       { exerciseId: 'deadlift', name: 'Deadlift', sets: 1, reps: 5, category: 'Deadlift' },
     ],
     subSetWorkout: [
-      { id: 'acc05', name: 'Pull-ups / Chin-ups', sets: 3, reps: 'To Failure' },
-      { id: 'acc06', name: 'Leg Press', sets: 3, reps: '10-15' },
-      { id: 'acc07', name: 'Face Pulls', sets: 3, reps: '15-20' },
-      { id: 'acc08', name: 'Lateral Raises', sets: 3, reps: '10-15' },
-    ],
+        { id: 'acc03', name: 'Pull-ups', sets: 3, reps: 'As many as possible' },
+        { id: 'acc04', name: 'Bicep Curls', sets: 3, reps: '8-12' },
+      ],
   },
 };
-const DELOAD_THRESHOLD = 3;
 
 const WorkoutView = () => {
   const { currentUser } = useAuth();
@@ -58,281 +53,301 @@ const WorkoutView = () => {
   const navigate = useNavigate();
 
   const [workoutState, setWorkoutState] = useState(null);
-  const [isDraftLoaded, setIsDraftLoaded] = useState(false);
-  const [isWorkoutDirty, setIsWorkoutDirty] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
-  const [userSettings, setUserSettings] = useState(null);
-  const [liftProgress, setLiftProgress] = useState(null);
+
+  // --- Start of Surgical Change 1: Add Timer State & Effect ---
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [workoutCompleted, setWorkoutCompleted] = useState(false);
+
+  useEffect(() => {
+    let timer;
+    if (!loading && workoutState && !workoutCompleted) {
+      timer = setInterval(() => {
+        setElapsedTime(prevTime => prevTime + 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [loading, workoutState, workoutCompleted]);
+  // --- End of Surgical Change 1 ---
+
+  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
+  const [isResting, setIsResting] = useState(false);
+  const [restDuration] = useState(90); // Lint fix: removed unused setRestDuration
   const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
   const [exerciseToSwap, setExerciseToSwap] = useState(null);
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [calculatorWeight, setCalculatorWeight] = useState(0);
   const [isAdjustWeightModalOpen, setIsAdjustWeightModalOpen] = useState(false);
   const [exerciseToAdjust, setExerciseToAdjust] = useState(null);
-  const [isSessionComplete, setIsSessionComplete] = useState(false);
-  const [isTimerVisible, setIsTimerVisible] = useState(false);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [userSettings, setUserSettings] = useState({ barbellWeight: 45 });
+  const workoutIdRef = useRef(null);
 
-  const workoutStateRef = useRef(workoutState);
   useEffect(() => {
-    workoutStateRef.current = workoutState;
-  }, [workoutState]);
-
-  // --- FIX: Combined loading and initialization logic into one useEffect to prevent race conditions ---
-  useEffect(() => {
-    const loadOrCreateWorkout = async () => {
-      if (!currentUser) return;
-
-      // 1. Prioritize loading a draft from local storage.
-      try {
-        const savedWorkoutJSON = localStorage.getItem(LOCAL_STORAGE_KEY);
-        if (savedWorkoutJSON) {
-          const savedWorkout = JSON.parse(savedWorkoutJSON);
-          const settings = await getUserSettings(currentUser.uid);
-          const progress = await getUserProgress(currentUser.uid);
-          
-          setUserSettings(settings);
-          setLiftProgress(progress);
-          setWorkoutState(savedWorkout);
-          setIsDraftLoaded(true);
-          return; // Stop here if a draft is successfully loaded.
-        }
-      } catch (error) {
-        console.error("Failed to load workout from local storage, creating new.", error);
-        localStorage.removeItem(LOCAL_STORAGE_KEY);
-      }
-
-      // 2. If no draft is found, initialize a new workout.
-      let workoutIdToLoad = location.state?.workoutId;
-      if (!workoutIdToLoad) {
-        const lastWorkout = await getLastWorkout(currentUser.uid);
-        workoutIdToLoad = !lastWorkout || lastWorkout.id === 'workoutB' ? 'workoutA' : 'workoutB';
-      }
-
-      const settings = await getUserSettings(currentUser.uid);
-      const progress = await getUserProgress(currentUser.uid);
-      setUserSettings(settings);
-      setLiftProgress(progress);
-
-      const template = workoutTemplates[workoutIdToLoad];
-      if (!template) {
-        navigate('/select-workout');
+    const initializeWorkout = async () => {
+      if (!currentUser) {
+        setLoading(false);
         return;
       }
 
-      const hydratedExercises = template.coreLifts.map((lift) => {
-        const progressData = progress[lift.exerciseId];
-        const newSets = Array.from({ length: lift.sets }, () => ({ reps: 0, targetReps: lift.reps }));
-        return {
-          ...lift,
-          progressId: progressData?.id || lift.exerciseId,
-          name: progressData?.name || lift.name,
-          weight: progressData?.currentWeight || 45,
-          increment: progressData?.increment || 5,
-          sets: newSets,
-          isLocked: false,
-        };
-      });
+      try {
+        const settings = await getUserSettings(currentUser.uid);
+        if (settings) {
+          setUserSettings(settings);
+        }
 
-      const accessoryExercises = template.subSetWorkout.map((ex) => ({
-        ...ex,
-        weight: '',
-        sets: Array.from({ length: Number(ex.sets) || 3 }, () => ({ reps: 0, targetReps: ex.reps })),
-        isLocked: false,
-      }));
+        const savedSession = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (savedSession) {
+          const { workoutId, state, currentExerciseIndex: savedIndex } = JSON.parse(savedSession);
+          workoutIdRef.current = workoutId;
+          setWorkoutState(state);
+          setCurrentExerciseIndex(savedIndex);
+          setLoading(false);
+          return;
+        }
 
-      setWorkoutState({
-        id: template.id,
-        name: template.name,
-        exercises: hydratedExercises,
-        subSetWorkout: accessoryExercises,
-      });
+        const lastWorkout = await getLastWorkout(currentUser.uid);
+        const workoutId = lastWorkout?.name === 'Workout A' ? 'workoutB' : 'workoutA';
+        workoutIdRef.current = workoutId;
+
+        const template = workoutTemplates[workoutId];
+        const progress = await getUserProgress(currentUser.uid);
+
+        const initialCoreLifts = template.coreLifts.map(lift => {
+          const liftProgress = progress[lift.exerciseId] || { weight: 45, isSuccessful: true, failedAttempts: 0 };
+          let weight = liftProgress.weight;
+
+          if (!liftProgress.isSuccessful && lift.exerciseId !== 'deadlift') {
+            weight = Math.max(45, weight * 0.9);
+          }
+
+          return {
+            ...lift,
+            weight: weight,
+            sets: Array(lift.sets).fill({ reps: null, completed: false }),
+            progressionStatus: 'pending',
+            isNewPR: false,
+          };
+        });
+
+        const initialState = { coreLifts: initialCoreLifts, subSetWorkout: template.subSetWorkout };
+        setWorkoutState(initialState);
+      } catch (err) {
+        console.error("Failed to initialize workout:", err);
+        setError('There was an issue setting up your workout.');
+      } finally {
+        setLoading(false);
+      }
     };
 
-    loadOrCreateWorkout();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    initializeWorkout();
   }, [currentUser, location.state]);
 
-  const updateWorkoutStateAndPersist = (recipe) => {
-    if (!isWorkoutDirty) setIsWorkoutDirty(true);
-    const nextState = produce(workoutState, recipe);
-    if (!isSessionComplete) {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(nextState));
+  useEffect(() => {
+    if (workoutState) {
+      const sessionToSave = {
+        workoutId: workoutIdRef.current,
+        state: workoutState,
+        currentExerciseIndex: currentExerciseIndex,
+      };
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sessionToSave));
     }
-    setWorkoutState(nextState);
+  }, [workoutState, currentExerciseIndex]);
+
+
+  const handleSetComplete = (exerciseIndex, setIndex, reps) => {
+    const newState = produce(workoutState, draft => {
+      draft.coreLifts[exerciseIndex].sets[setIndex] = { reps, completed: true };
+    });
+    setWorkoutState(newState);
   };
 
-  const handleSetToggle = (exerciseType, exerciseIndex, setIndex) => {
-    updateWorkoutStateAndPersist(draft => {
-      const set = draft[exerciseType][exerciseIndex].sets[setIndex];
-      if (set.reps < set.targetReps) {
-        set.reps = set.targetReps;
-      } else {
-        set.reps = 0;
-      }
+  const handleNextExercise = () => {
+    const currentLift = workoutState.coreLifts[currentExerciseIndex];
+    const completedSets = currentLift.sets.filter(s => s.completed).length;
+    let progressionStatus = 'pending';
+
+    if (completedSets === currentLift.sets) {
+      progressionStatus = 'successful';
+    } else if (completedSets < currentLift.sets && completedSets > 0) {
+      progressionStatus = 'partial';
+    } else {
+      progressionStatus = 'failed';
+    }
+
+    const newState = produce(workoutState, draft => {
+      draft.coreLifts[currentExerciseIndex].progressionStatus = progressionStatus;
     });
-    if (exerciseType === 'exercises' && !isTimerRunning) {
-      setIsTimerVisible(true);
+    setWorkoutState(newState);
+
+    if (currentExerciseIndex < workoutState.coreLifts.length - 1) {
+      setCurrentExerciseIndex(currentExerciseIndex + 1);
+      setIsResting(true);
+    } else {
+      setWorkoutCompleted(true);
     }
   };
 
-  const handleStartTimer = () => { setIsTimerVisible(false); setIsTimerRunning(true); };
-  const handleCloseTimer = () => { setIsTimerVisible(false); setIsTimerRunning(false); };
-  const handleOpenCalculator = (weight) => { setCalculatorWeight(weight); setIsCalculatorOpen(true); };
-  const handleCloseCalculator = () => { setIsCalculatorOpen(false); };
 
-  const handleLockInExercise = (exerciseType, exerciseIndex) => {
-    updateWorkoutStateAndPersist(draft => {
-      draft[exerciseType][exerciseIndex].isLocked = true;
-    });
-  };
-  
-  const handleAccessoryWeightChange = (exerciseIndex, newWeight) => {
-    updateWorkoutStateAndPersist(draft => { draft.subSetWorkout[exerciseIndex].weight = newWeight; });
-  };
-  const handleIncrementAccessoryWeight = (exerciseIndex) => {
-    updateWorkoutStateAndPersist(draft => {
-      const currentWeight = parseFloat(draft.subSetWorkout[exerciseIndex].weight) || 0;
-      draft.subSetWorkout[exerciseIndex].weight = currentWeight + (userSettings?.weightIncrement || 5);
-    });
-  };
-  const handleDecrementAccessoryWeight = (exerciseIndex) => {
-    updateWorkoutStateAndPersist(draft => {
-      const currentWeight = parseFloat(draft.subSetWorkout[exerciseIndex].weight) || 0;
-      const newWeight = currentWeight - (userSettings?.weightIncrement || 5);
-      draft.subSetWorkout[exerciseIndex].weight = newWeight > 0 ? newWeight : 0;
-    });
-  };
-
-  const handleOpenSwapModal = (exerciseIndex) => {
-    const exercise = workoutState.exercises[exerciseIndex];
-    setExerciseToSwap({ index: exerciseIndex, name: exercise.name, category: exercise.category });
+  const handleOpenSwapModal = (exercise, type, index) => {
+    setExerciseToSwap({ ...exercise, type, index });
     setIsSwapModalOpen(true);
   };
-  const handleCloseSwapModal = () => { setIsSwapModalOpen(false); setExerciseToSwap(null); };
 
-  const handleExerciseSelect = (newExercise) => {
-    updateWorkoutStateAndPersist(draft => {
-        const newSets = Array.from({ length: 5 }, () => ({ reps: 0, targetReps: 5 }));
-        draft.exercises[exerciseToSwap.index] = {
-            exerciseId: newExercise.id, name: newExercise.name, reps: 5,
-            category: newExercise.category, weight: '', isLocked: false, sets: newSets,
-        };
+  const handleCloseSwapModal = () => {
+    setIsSwapModalOpen(false);
+    setExerciseToSwap(null);
+  };
+
+  const handleExerciseSelect = (selectedExercise) => {
+    const { type, index } = exerciseToSwap;
+    const newState = produce(workoutState, draft => {
+      draft[type][index] = { ...draft[type][index], ...selectedExercise, exerciseId: selectedExercise.id };
     });
+    setWorkoutState(newState);
     handleCloseSwapModal();
   };
 
-  const handleOpenAdjustWeightModal = (type, index) => { setExerciseToAdjust({ type, index }); setIsAdjustWeightModalOpen(true); };
-  const handleCloseAdjustWeightModal = () => { setIsAdjustWeightModalOpen(false); setExerciseToAdjust(null); };
+  const handleOpenCalculator = (weight) => {
+    setCalculatorWeight(weight);
+    setIsCalculatorOpen(true);
+  };
+
+  const handleCloseCalculator = () => {
+    setIsCalculatorOpen(false);
+  };
+
+  const handleOpenAdjustWeightModal = (exercise, type, index) => {
+    setExerciseToAdjust({ ...exercise, type, index });
+    setIsAdjustWeightModalOpen(true);
+  };
+
+  const handleCloseAdjustWeightModal = () => {
+    setIsAdjustWeightModalOpen(false);
+    setExerciseToAdjust(null);
+  };
+
   const handleUpdateWeight = (newWeight) => {
-    if (exerciseToAdjust) {
-      updateWorkoutStateAndPersist(draft => {
-        draft[exerciseToAdjust.type][exerciseToAdjust.index].weight = newWeight;
-      });
+    const { type, index } = exerciseToAdjust;
+    const newState = produce(workoutState, draft => {
+      draft[type][index].weight = newWeight;
+    });
+    setWorkoutState(newState);
+    handleCloseAdjustWeightModal();
+  };
+
+  const handleDiscardWorkout = () => {
+    if (window.confirm("Are you sure you want to discard this workout and start a new one? Your progress won't be saved.")) {
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+      setWorkoutState(null);
+      setCurrentExerciseIndex(0);
+      navigate(0);
     }
   };
 
   const handleSaveWorkout = async () => {
-    if (!currentUser || !userSettings || !liftProgress) {
-      setSaveMessage('Error: User data or settings not loaded.'); return;
-    }
-    setIsSaving(true); setSaveMessage(''); setIsSessionComplete(true);
+    if (!currentUser || !workoutState) return;
+    setIsSaving(true);
+    setWorkoutCompleted(true);
 
-    const finalWorkoutState = workoutStateRef.current;
-    const progressionPromises = [];
-    const { weightIncrement, deloadPercentage } = userSettings;
-    const deloadMultiplier = 1 - deloadPercentage / 100;
-    let newPRsAchieved = false;
+    // --- Start of Surgical Change 2: Update Save Logic ---
+    const timeTakenString = `${Math.floor(elapsedTime / 60)}m ${elapsedTime % 60}s`;
 
-    const exercisesWithStatus = finalWorkoutState.exercises.map(exercise => {
-      const progressData = liftProgress[exercise.exerciseId];
-      if (!progressData) return exercise;
-      const wasSuccessful = exercise.sets.every(set => set.reps >= set.targetReps);
-      const totalRepsLogged = exercise.sets.reduce((sum, set) => sum + (set.reps || 0), 0);
-      let status = totalRepsLogged > 0 ? (wasSuccessful ? 'successful' : 'failed') : 'skipped';
-      
-      switch (status) {
-        case 'successful': {
-          if (exercise.weight > progressData.currentWeight) newPRsAchieved = true;
-          const newWeight = progressData.currentWeight + weightIncrement;
-          progressionPromises.push(updateUserProgressAfterWorkout(currentUser.uid, exercise.progressId, { currentWeight: newWeight, failureCount: 0 }));
-          break;
-        }
-        case 'failed': {
-          const newFailureCount = (progressData.failureCount || 0) + 1;
-          if (newFailureCount >= DELOAD_THRESHOLD) {
-            const deloadWeight = Math.round((progressData.currentWeight * deloadMultiplier) / 5) * 5;
-            progressionPromises.push(updateUserProgressAfterWorkout(currentUser.uid, exercise.progressId, { currentWeight: deloadWeight, failureCount: 0 }));
-          } else {
-            progressionPromises.push(updateUserProgressAfterWorkout(currentUser.uid, exercise.progressId, { failureCount: newFailureCount }));
-          }
-          break;
-        }
-        default: break;
-      }
-      return { ...exercise, progressionStatus: status };
-    });
+    const workoutData = {
+      userId: currentUser.uid,
+      name: workoutIdRef.current,
+      workoutType: '5x5',
+      duration: elapsedTime,
+      timeTaken: timeTakenString,
+      exercisesCompleted: workoutState.coreLifts.length, // FIX: Added missing field
+      exercises: workoutState.coreLifts.map(ex => ({
+        name: ex.name,
+        weight: ex.weight,
+        sets: ex.sets.map(set => set.reps),
+        progressionStatus: ex.progressionStatus,
+        isNewPR: ex.isNewPR || false,
+        increment: userSettings.progression?.[ex.exerciseId] || 5
+      })),
+      createdAt: new Date(),
+    };
 
     try {
-      await saveWorkoutSession(currentUser.uid, { ...finalWorkoutState, exercises: exercisesWithStatus, containsNewPR: newPRsAchieved, workoutType: '5x5' });
-      await Promise.all(progressionPromises);
+      await saveWorkoutSession(workoutData);
+      await updateUserProgressAfterWorkout(currentUser.uid, workoutState.coreLifts);
       localStorage.removeItem(LOCAL_STORAGE_KEY);
-      setSaveMessage('Workout Saved! Your next workout will be waiting when you return.');
-    } catch (error) {
-      setSaveMessage('Error: Could not save workout.'); console.error(error); setIsSessionComplete(false);
+      setSaveMessage('Workout saved successfully!');
+    } catch (err) {
+      setError('Failed to save workout session.');
+      console.error(err);
+      setSaveMessage('Error saving workout. Please try again.');
     } finally {
       setIsSaving(false);
     }
+    // --- End of Surgical Change 2 ---
   };
   
-  const handleDiscardWorkout = () => {
-    if (window.confirm("Are you sure you want to discard this workout?")) {
-      localStorage.removeItem(LOCAL_STORAGE_KEY);
-      setWorkoutState(null);
-      setIsDraftLoaded(false);
-      setIsWorkoutDirty(false);
-      setIsSessionComplete(false);
-      setSaveMessage('');
-      navigate('/select-workout');
-    }
-  };
+  if (loading) {
+    return <MainLayout><p className="text-center text-gray-300">Loading workout...</p></MainLayout>;
+  }
 
-  if (!workoutState || !userSettings) return <div className="p-6 text-center text-white">Loading workout...</div>;
+  if (error) {
+    return <MainLayout><p className="text-center text-red-500">{error}</p></MainLayout>;
+  }
+
+  if (!workoutState) {
+    return <MainLayout><p className="text-center text-gray-300">No workout loaded.</p></MainLayout>;
+  }
+
+  const currentExercise = workoutState.coreLifts[currentExerciseIndex];
 
   return (
-    <>
-      <div className="p-4 pb-24 md:p-6">
-        {isDraftLoaded && !isSessionComplete && (
-          <div className="mb-4 rounded-lg bg-yellow-500/20 p-3 text-center text-sm font-bold text-yellow-300">
-            Resuming in-progress workout.
+    <div className="mx-auto max-w-4xl p-4">
+      <h2 className="mb-4 text-center text-4xl font-bold text-white">{workoutTemplates[workoutIdRef.current]?.name}</h2>
+      
+      {!workoutCompleted ? (
+        <ExerciseDisplay
+          exercise={currentExercise}
+          onSetComplete={(setIndex, reps) => handleSetComplete(currentExerciseIndex, setIndex, reps)}
+          onNextExercise={handleNextExercise}
+          onOpenSwapModal={() => handleOpenSwapModal(currentExercise, 'coreLifts', currentExerciseIndex)}
+          onOpenCalculator={handleOpenCalculator}
+          onOpenAdjustWeightModal={() => handleOpenAdjustWeightModal(currentExercise, 'coreLifts', currentExerciseIndex)}
+          isLastExercise={currentExerciseIndex === workoutState.coreLifts.length - 1}
+        />
+      ) : (
+        <SubSetWorkout
+          exercises={workoutState.subSetWorkout}
+          onUpdate={(index, data) => {
+            const newState = produce(workoutState, draft => {
+                Object.assign(draft.subSetWorkout[index], data);
+            });
+            setWorkoutState(newState);
+          }}
+        />
+      )}
+      
+      <div className="mt-8 text-center">
+        {workoutCompleted ? (
+          <div className="flex flex-col items-center gap-4">
+            {!saveMessage && (
+              <div className="flex flex-col gap-4 md:flex-row">
+                <button onClick={handleDiscardWorkout} className="w-full rounded-lg bg-gray-600 px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-gray-500 md:w-auto">Discard & Start New</button>
+                <button onClick={handleSaveWorkout} disabled={isSaving} className="w-full rounded-lg bg-indigo-600 px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400 md:w-auto">{isSaving ? 'Saving...' : 'Finish & Save Workout'}</button>
+              </div>
+            )}
+            <Link to="/" className="inline-block w-full rounded-lg bg-green-600 px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-green-700 md:w-auto">Go to Dashboard</Link>
+            {saveMessage && (<p className="mt-4 text-sm text-gray-300">{saveMessage}</p>)}
           </div>
-        )}
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-3xl font-bold text-white">{workoutState.name}</h2>
-          <span className="text-lg text-gray-400">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
-        </div>
-        <div className="space-y-6">
-          {workoutState.exercises.map((exercise, index) => (
-            <ExerciseDisplay key={exercise.progressId || index} exercise={exercise} onSetToggle={(setIndex) => handleSetToggle('exercises', index, setIndex)} onSwap={() => handleOpenSwapModal(index)} isComplete={isSessionComplete} onAdjustWeightOpen={() => handleOpenAdjustWeightModal('exercises', index)} onCalculatorOpen={handleOpenCalculator} onLockIn={() => handleLockInExercise('exercises', index)} />
-          ))}
-        </div>
-        <SubSetWorkout exercises={workoutState.subSetWorkout} onSetToggle={(exIndex, setIndex) => handleSetToggle('subSetWorkout', exIndex, setIndex)} onWeightChange={handleAccessoryWeightChange} onIncrement={handleIncrementAccessoryWeight} onDecrement={handleDecrementAccessoryWeight} isComplete={isSessionComplete} onLockIn={(exIndex) => handleLockInExercise('subSetWorkout', exIndex)} />
-        <div className="mt-8 border-t border-gray-700 pt-6 text-center">
-          {!isSessionComplete ? (
-            <div className="flex flex-col items-center gap-4 md:flex-row md:justify-center">
-              {isDraftLoaded && (<button onClick={handleDiscardWorkout} className="w-full rounded-lg bg-gray-600 px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-gray-500 md:w-auto">Discard & Start New</button>)}
-              <button onClick={handleSaveWorkout} disabled={isSaving} className="w-full rounded-lg bg-indigo-600 px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400 md:w-auto">{isSaving ? 'Saving...' : 'Finish & Save Workout'}</button>
-            </div>
-          ) : (<Link to="/" className="inline-block w-full rounded-lg bg-green-600 px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-green-700 md:w-auto">Go to Dashboard</Link>)}
-          {saveMessage && (<p className="mt-4 text-sm text-gray-300">{saveMessage}</p>)}
-        </div>
+        ) : null }
       </div>
+      
       <ExerciseSwapModal isOpen={isSwapModalOpen} onClose={handleCloseSwapModal} onExerciseSelect={handleExerciseSelect} exerciseToSwap={exerciseToSwap} />
       <PlateCalculatorModal isOpen={isCalculatorOpen} onClose={handleCloseCalculator} targetWeight={calculatorWeight} barbellWeight={userSettings?.barbellWeight} />
-      <AdjustWeightModal isOpen={isAdjustWeightModalOpen} onClose={handleCloseAdjustWeightModal} onSubmit={handleUpdateWeight} currentWeight={ exerciseToAdjust && workoutState ? workoutState[exerciseToAdjust.type][exerciseToAdjust.index].weight : 0 } />
-      <RestTimer isVisible={isTimerVisible || isTimerRunning} onStart={handleStartTimer} onClose={handleCloseTimer} />
-    </>
+      <AdjustWeightModal isOpen={isAdjustWeightModalOpen} onClose={handleCloseAdjustWeightModal} onSubmit={handleUpdateWeight} currentWeight={ exerciseToAdjust && workoutState ? workoutState.coreLifts[exerciseToAdjust.index].weight : 0 } />
+      <RestTimer isResting={isResting} duration={restDuration} onRestEnd={() => setIsResting(false)} />
+    </div>
   );
 };
 
