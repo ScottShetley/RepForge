@@ -14,13 +14,17 @@ const formatTime = (seconds) => {
 
 const UPPER_BODY_CIRCUIT_TEMPLATE = [
   { id: 'chest-press-machine', name: 'Chest Press Machine' },
+  { id: 'lat-pull-down-machine', name: 'Lat Pull Down Machine' },
+  { id: 'seated-row-machine', name: 'Seated Row Machine' },
   { id: 'shoulder-press-machine', name: 'Shoulder Press Machine' },
   { id: 'bicep-curl-machine', name: 'Bicep Curl Machine' },
+  { id: 'triceps-press-machine', name: 'Tricep Press Machine' },
   { id: 'triceps-extension-machine', name: 'Triceps Extension Machine' },
   { id: 'abdominal-crunch-machine', name: 'Abdominal Crunch Machine' },
 ];
 
 const LOWER_BODY_CIRCUIT_TEMPLATE = [
+  { id: 'leg-press-machine', name: 'Leg Press Machine' },
   { id: 'leg-extension-machine', name: 'Leg Extension Machine' },
   { id: 'seated-leg-curl', name: 'Seated Leg Curl' },
   { id: 'calf-raise-machine', name: 'Calf Raise Machine' },
