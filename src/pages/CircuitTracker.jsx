@@ -72,7 +72,19 @@ const CircuitTracker = () => {
         setExercises(loadedExercises);
 
         const progress = await getCircuitProgress(currentUser.uid);
-        setCircuitProgress(progress);
+        
+        // **FIX 1: DATA MIGRATION HANDSHAKE**
+        // This ensures backward compatibility by checking for `currentWeight`
+        // and migrating it to the correct `lastWeight` field.
+        const migratedProgress = {};
+        for (const key in progress) {
+            migratedProgress[key] = {
+                ...progress[key],
+                lastWeight: progress[key].lastWeight ?? progress[key].currentWeight ?? 0
+            };
+        }
+        setCircuitProgress(migratedProgress);
+
 
         const savedDraft = localStorage.getItem(storageKey);
         if (savedDraft) {
@@ -111,6 +123,21 @@ const CircuitTracker = () => {
       localStorage.setItem(storageKey, JSON.stringify(draftToSave));
     }
   }, [workoutState, elapsedTime, isSessionActive, storageKey]);
+
+  // **FIX 3A: HANDLE START WORKOUT FUNCTION**
+  // Initializes the active session state by copying historical
+  // progress, preventing the weight from resetting to zero.
+  const handleStartWorkout = () => {
+    const initialWorkoutState = {};
+    exercises.forEach(ex => {
+      initialWorkoutState[ex.id] = {
+        exerciseId: ex.id,
+        weight: circuitProgress[ex.id]?.lastWeight ?? 0,
+      };
+    });
+    setWorkoutState(initialWorkoutState);
+    setIsSessionActive(true);
+  };
 
   const handleUpdate = useCallback((exerciseId, data) => {
     setWorkoutState(produce(draft => {
@@ -161,8 +188,9 @@ const CircuitTracker = () => {
       });
 
       if (exState.completedSets === 3) {
+        // **FIX 2B: ALIGN WRITE OPERATION WITH MASTER PLAN**
         newProgressUpdates[exState.exerciseId] = {
-          currentWeight: performedWeight + PROGRESSION_INCREMENT
+          lastWeight: performedWeight + PROGRESSION_INCREMENT
         };
       }
     });
@@ -204,7 +232,8 @@ const CircuitTracker = () => {
           <CircuitExerciseCard
             key={ex.id}
             exercise={ex}
-            targetWeight={circuitProgress[ex.id]?.currentWeight}
+            // **FIX 2A: ALIGN READ OPERATION WITH MASTER PLAN**
+            targetWeight={circuitProgress[ex.id]?.lastWeight}
             onUpdate={(data) => handleUpdate(ex.id, data)}
             onLockIn={() => handleLockIn(ex.id)}
             disabled={!isSessionActive}
@@ -230,8 +259,9 @@ const CircuitTracker = () => {
                 {formatTime(elapsedTime)}
               </div>
               {!isSessionActive ? (
+                // **FIX 3B: UPDATE ONCLICK HANDLER**
                 <button
-                  onClick={() => setIsSessionActive(true)}
+                  onClick={handleStartWorkout}
                   className="w-full rounded-md bg-green-600 px-6 py-3 font-bold text-white hover:bg-green-500 sm:w-auto"
                 >
                   Start Workout
