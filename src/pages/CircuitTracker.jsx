@@ -181,7 +181,6 @@ const CircuitTracker = () => {
     };
 
     try {
-      // --- FIX: This now uses the correct variable name 'finalWorkoutData' ---
       await saveWorkoutSession(currentUser.uid, finalWorkoutData);
       if (Object.keys(newProgressUpdates).length > 0) {
         await updateCircuitProgress(currentUser.uid, newProgressUpdates);
@@ -190,7 +189,6 @@ const CircuitTracker = () => {
       localStorage.removeItem(storageKey);
       navigate('/');
     } catch (err) {
-      // Corrected console log for better debugging
       console.error("Error saving workout session:", err);
       setError('Failed to save workout. Please try again.');
       setIsSaving(false);
