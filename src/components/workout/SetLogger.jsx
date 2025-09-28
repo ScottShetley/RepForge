@@ -1,16 +1,14 @@
 import React from 'react';
-// Note: Timer functionality has been removed for this refactor to simplify the fix.
-// It can be re-integrated later if needed.
 
-const SetLogger = ({sets, onSetToggle, isComplete}) => {
+const SetLogger = ({ sets, onSetToggle, isComplete }) => {
   const setsCount = sets.length;
 
   return (
     <div className="flex w-full items-center justify-between pt-2">
-      {Array.from ({length: setsCount}, (_, i) => i).map (setIndex => {
+      {Array.from({ length: setsCount }, (_, i) => i).map(setIndex => {
         const set = sets[setIndex];
-        // --- REFACTORED: Completion is now determined by reps vs targetReps ---
-        const isCompleted = set.reps >= set.targetReps;
+        // --- DEFINITIVE FIX: Use the 'completed' boolean from the parent state ---
+        const isCompleted = set.completed;
 
         const baseStyle =
           'w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-sm md:text-lg font-semibold transition-colors duration-200';
@@ -24,7 +22,7 @@ const SetLogger = ({sets, onSetToggle, isComplete}) => {
 
         const handleClick = () => {
           if (!isComplete) {
-            onSetToggle (setIndex);
+            onSetToggle(setIndex);
           }
         };
 
