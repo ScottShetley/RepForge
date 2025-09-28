@@ -5,49 +5,45 @@ import { FaCalculator, FaSyncAlt, FaLock, FaPencilAlt } from 'react-icons/fa';
 const ExerciseDisplay = ({
   exercise,
   onSetToggle,
-  onSwap,
-  isComplete,
-  onAdjustWeightOpen,
-  onCalculatorOpen,
+  onOpenSwapModal,
+  onOpenCalculator,
+  onOpenAdjustWeightModal,
   onLockIn,
 }) => {
-  const isLocked = exercise.isLocked || isComplete;
+  const isLocked = exercise.isLocked;
 
   return (
     <div
-      className={`rounded-lg p-4 shadow-md ${
-        isLocked ? 'bg-gray-800' : 'bg-gray-700'
+      className={`rounded-lg p-4 shadow-md transition-colors ${
+        isLocked ? 'bg-green-900/50 border-2 border-green-500' : 'bg-gray-700'
       }`}
     >
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        {/* Exercise Name and Details */}
         <div className="mb-2 sm:mb-0">
           <h3 className="text-xl font-bold text-white">{exercise.name}</h3>
           <p className="text-sm text-gray-300">
             {exercise.sets.length}x{exercise.reps} • {exercise.weight} lbs
           </p>
         </div>
-
-        {/* Buttons - MODIFIED FOR RESPONSIVENESS */}
-        <div className="flex flex-wrap items-center gap-2 mb-2">
+        <div className="flex flex-wrap items-center gap-2">
           {!isLocked && (
             <>
               <button
-                onClick={onAdjustWeightOpen}
+                onClick={onOpenAdjustWeightModal}
                 className="rounded bg-gray-600 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-gray-500"
                 aria-label="Adjust weight"
               >
                 <FaPencilAlt className="mr-1 inline" /> Adjust
               </button>
               <button
-                onClick={onSwap}
+                onClick={onOpenSwapModal}
                 className="rounded bg-gray-600 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-gray-500"
                 aria-label="Swap exercise"
               >
                 <FaSyncAlt className="mr-1 inline" /> Swap
               </button>
               <button
-                onClick={() => onCalculatorOpen(exercise.weight)}
+                onClick={() => onOpenCalculator(exercise.weight)}
                 className="rounded bg-gray-600 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-gray-500"
                 aria-label="Open plate calculator"
               >
@@ -58,16 +54,14 @@ const ExerciseDisplay = ({
           <button
             onClick={onLockIn}
             disabled={isLocked}
-            className="rounded bg-cyan-600 px-3 py-1 text-xs font-bold text-white transition-colors hover:bg-cyan-500 disabled:cursor-not-allowed disabled:bg-gray-500"
+            className="rounded bg-cyan-600 px-3 py-1 text-xs font-bold text-white transition-colors hover:bg-cyan-500 disabled:cursor-not-allowed disabled:bg-green-500"
           >
             <FaLock className="mr-1 inline" />
-            {/* --- FIX: Implemented conditional button text --- */}
-            {isLocked ? 'Locked in' : 'Lock it in'}
+            {isLocked ? 'Locked In' : 'Lock it in'}
           </button>
         </div>
       </div>
-
-      <div className="mt-2">
+      <div className="mt-4">
         <SetLogger
           sets={exercise.sets}
           onSetToggle={onSetToggle}

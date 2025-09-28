@@ -1,11 +1,11 @@
-import React, {useState, useEffect} from 'react';
-import {useNavigate} from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
-import {useAuth} from '../hooks/useAuth';
-import {getLastWorkout} from '../services/firebase';
-import {FaArrowRight} from 'react-icons/fa';
+import { useAuth } from '../hooks/useAuth';
+import { getLastWorkout } from '../services/firebase';
+import { FaArrowRight } from 'react-icons/fa';
 
-const WorkoutCard = ({title, description, isRecommended, onClick}) => (
+const WorkoutCard = ({ title, description, isRecommended, onClick }) => (
   <button
     onClick={onClick}
     className={`relative w-full rounded-lg bg-gray-700 p-6 text-left shadow-lg transition-all duration-300 hover:bg-gray-600 hover:shadow-cyan-500/20 ${isRecommended ? 'border-2 border-cyan-400' : 'border-2 border-transparent'}`}
@@ -24,35 +24,37 @@ const WorkoutCard = ({title, description, isRecommended, onClick}) => (
 );
 
 const WorkoutSelection = () => {
-  const {currentUser} = useAuth ();
-  const navigate = useNavigate ();
-  const [recommendedWorkoutId, setRecommendedWorkoutId] = useState (null);
-  const [isLoading, setIsLoading] = useState (true);
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
+  const [recommendedWorkoutId, setRecommendedWorkoutId] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect (
+  useEffect(
     () => {
       if (currentUser) {
         const determineRecommendation = async () => {
-          setIsLoading (true);
-          const lastWorkout = await getLastWorkout (currentUser.uid);
+          setIsLoading(true);
+          const lastWorkout = await getLastWorkout(currentUser.uid);
           const nextWorkout = !lastWorkout || lastWorkout.id === 'workoutB'
             ? 'workoutA'
             : 'workoutB';
-          setRecommendedWorkoutId (nextWorkout);
-          setIsLoading (false);
+          setRecommendedWorkoutId(nextWorkout);
+          setIsLoading(false);
         };
-        determineRecommendation ();
+        determineRecommendation();
       }
     },
     [currentUser]
   );
 
   const handleSelectRepForge = workoutId => {
-    navigate ('/workout', {state: {workoutId}});
+    // *** DEBUGGING LINE ADDED ***
+    console.log(`[WorkoutSelection] Navigating to /workout with ID: ${workoutId}`);
+    navigate('/workout', { state: { workoutId } });
   };
 
   const handleSelectCircuit = circuitType => {
-    navigate ('/circuit-tracker', {state: {circuitType}});
+    navigate('/circuit-tracker', { state: { circuitType } });
   };
 
   if (isLoading) {
@@ -74,31 +76,31 @@ const WorkoutSelection = () => {
             title="RepForge: Workout A"
             description="A core strength session focused on Squat, Bench Press, and Rows."
             isRecommended={recommendedWorkoutId === 'workoutA'}
-            onClick={() => handleSelectRepForge ('workoutA')}
+            onClick={() => handleSelectRepForge('workoutA')}
           />
           <WorkoutCard
             title="RepForge: Workout B"
             description="A core strength session focused on Squat, Overhead Press, and Deadlifts."
             isRecommended={recommendedWorkoutId === 'workoutB'}
-            onClick={() => handleSelectRepForge ('workoutB')}
+            onClick={() => handleSelectRepForge('workoutB')}
           />
           <WorkoutCard
             title="Full Body Circuit"
             description="A comprehensive, machine-based workout targeting all major muscle groups."
             isRecommended={false}
-            onClick={() => handleSelectCircuit ('fullBody')}
+            onClick={() => handleSelectCircuit('fullBody')}
           />
           <WorkoutCard
             title="Upper Body Circuit"
             description="Complements Workout A with targeted upper body machine exercises."
             isRecommended={false}
-            onClick={() => handleSelectCircuit ('upperBody')}
+            onClick={() => handleSelectCircuit('upperBody')}
           />
           <WorkoutCard
             title="Lower Body Circuit"
             description="Complements Workout B with targeted lower body machine exercises."
             isRecommended={false}
-            onClick={() => handleSelectCircuit ('lowerBody')}
+            onClick={() => handleSelectCircuit('lowerBody')}
           />
         </div>
       </div>
