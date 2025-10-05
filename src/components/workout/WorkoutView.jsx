@@ -243,17 +243,21 @@ const WorkoutView = ({ workoutId }) => {
             newFailureCount = 0;
           }
         }
-        await updateUserProgressAfterWorkout(currentUser.uid, lift.exerciseId, {
+
+        const updates = {
           currentWeight: newWeight,
           failureCount: newFailureCount,
-        });
+        };
+
+        console.log(`[WorkoutView] Attempting to update ${lift.exerciseId} with:`, updates); // DETAILED LOGGING
+        await updateUserProgressAfterWorkout(currentUser.uid, lift.exerciseId, updates);
       }
 
       localStorage.removeItem(LOCAL_STORAGE_KEY);
       setSaveMessage('Workout saved successfully!');
     } catch (err) {
-      setError('Failed to save workout session.');
-      console.error(err);
+      setError('Failed to save workout session. Please check console for details.'); // ENHANCED ERROR MESSAGE
+      console.error("Error during workout save process. The error was:", err); // DETAILED LOGGING
     } finally {
       setIsSaving(false);
     }

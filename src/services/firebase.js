@@ -219,6 +219,8 @@ export const updateUserProgressAfterWorkout = async (userId, progressId, updates
     }
   }
 
+  console.log(`[Firebase Service] Updating progress for user: ${userId}, lift: ${progressId}`, updates); // DETAILED LOGGING
+
   const docRef = doc(db, "users", userId, "user_lift_progress", progressId);
   try {
     await updateDoc(docRef, updates);
