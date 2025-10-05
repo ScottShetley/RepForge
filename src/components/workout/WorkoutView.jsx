@@ -5,6 +5,7 @@ import SubSetWorkout from './SubSetWorkout';
 import ExerciseSwapModal from './ExerciseSwapModal';
 import PlateCalculatorModal from './PlateCalculatorModal';
 import AdjustWeightModal from './AdjustWeightModal';
+import RestTimer from './RestTimer'; // Step 1: Import RestTimer
 import { useAuth } from '../../hooks/useAuth';
 import {
   saveWorkoutSession,
@@ -63,6 +64,10 @@ const WorkoutView = ({ workoutId }) => {
   const [isAdjustWeightModalOpen, setIsAdjustWeightModalOpen] = useState(false);
   const [exerciseToAdjust, setExerciseToAdjust] = useState(null);
   const [userSettings, setUserSettings] = useState({ barbellWeight: 45 });
+  
+  // Step 2: Add state for the timer
+  const [isTimerVisible, setIsTimerVisible] = useState(false);
+
   const workoutIdRef = useRef(workoutId);
 
   useEffect(() => {
@@ -137,12 +142,27 @@ const WorkoutView = ({ workoutId }) => {
     }
   }, [workoutState]);
 
+  // Step 3: Implement timer logic
   const handleSetToggle = (exerciseIndex, setIndex) => {
+    const isCompletingSet = !workoutState.coreLifts[exerciseIndex].sets[setIndex].completed;
+    
     setWorkoutState(produce(draft => {
-      const isCompleted = draft.coreLifts[exerciseIndex].sets[setIndex].completed;
-      draft.coreLifts[exerciseIndex].sets[setIndex].completed = !isCompleted;
-      draft.coreLifts[exerciseIndex].sets[setIndex].reps = !isCompleted ? draft.coreLifts[exerciseIndex].reps : null;
+      draft.coreLifts[exerciseIndex].sets[setIndex].completed = isCompletingSet;
+      draft.coreLifts[exerciseIndex].sets[setIndex].reps = isCompletingSet ? draft.coreLifts[exerciseIndex].reps : null;
     }));
+
+    // Show the timer only when a set is completed
+    if (isCompletingSet) {
+      setIsTimerVisible(true);
+    }
+  };
+
+  const handleTimerClose = () => {
+    setIsTimerVisible(false);
+  };
+
+  const handleTimerStart = () => {
+    // Parent can perform actions when timer starts if needed in the future
   };
 
   const handleOpenCalculator = (weight) => {
@@ -189,10 +209,15 @@ const WorkoutView = ({ workoutId }) => {
   };
 
   const handleSubSetSetToggle = (exerciseIndex, setIndex) => {
+    const isCompletingSet = !workoutState.subSetWorkout[exerciseIndex].sets[setIndex].completed;
+
     setWorkoutState(produce(draft => {
-      const currentStatus = draft.subSetWorkout[exerciseIndex].sets[setIndex].completed;
-      draft.subSetWorkout[exerciseIndex].sets[setIndex].completed = !currentStatus;
+      draft.subSetWorkout[exerciseIndex].sets[setIndex].completed = isCompletingSet;
     }));
+    
+    if (isCompletingSet) {
+      setIsTimerVisible(true);
+    }
   };
 
   const handleDiscardWorkout = () => {
@@ -249,15 +274,15 @@ const WorkoutView = ({ workoutId }) => {
           failureCount: newFailureCount,
         };
 
-        console.log(`[WorkoutView] Attempting to update ${lift.exerciseId} with:`, updates); // DETAILED LOGGING
+        console.log(`[WorkoutView] Attempting to update ${lift.exerciseId} with:`, updates);
         await updateUserProgressAfterWorkout(currentUser.uid, lift.exerciseId, updates);
       }
 
       localStorage.removeItem(LOCAL_STORAGE_KEY);
       setSaveMessage('Workout saved successfully!');
     } catch (err) {
-      setError('Failed to save workout session. Please check console for details.'); // ENHANCED ERROR MESSAGE
-      console.error("Error during workout save process. The error was:", err); // DETAILED LOGGING
+      setError('Failed to save workout session. Please check console for details.');
+      console.error("Error during workout save process. The error was:", err);
     } finally {
       setIsSaving(false);
     }
@@ -268,7 +293,7 @@ const WorkoutView = ({ workoutId }) => {
   if (!workoutState) return <p className="text-center text-gray-300">No workout loaded.</p>;
 
   return (
-    <div className="mx-auto max-w-4xl p-4">
+    <div className="mx-auto max-w-4xl p-4 pb-24"> {/* Added padding-bottom to prevent overlap */}
       <h2 className="mb-4 text-center text-4xl font-bold text-white">{workoutTemplates[workoutIdRef.current]?.name}</h2>
       
       <div className="space-y-6">
@@ -287,12 +312,12 @@ const WorkoutView = ({ workoutId }) => {
 
       {workoutState.subSetWorkout && (
         <SubSetWorkout 
-            exercises={workoutState.subSetWorkout}
-            onSetToggle={handleSubSetSetToggle}
-            onWeightChange={(index, newWeight) => handleSubSetUpdate(index, 'weight', newWeight)}
-            onIncrement={(index) => handleSubSetUpdate(index, 'weight', workoutState.subSetWorkout[index].weight + 5)}
-            onDecrement={(index) => handleSubSetUpdate(index, 'weight', Math.max(0, workoutState.subSetWorkout[index].weight - 5))}
-            onLockIn={(index) => handleSubSetUpdate(index, 'isLocked', true)}
+          exercises={workoutState.subSetWorkout}
+          onSetToggle={handleSubSetSetToggle}
+          onWeightChange={(index, newWeight) => handleSubSetUpdate(index, 'weight', newWeight)}
+          onIncrement={(index) => handleSubSetUpdate(index, 'weight', workoutState.subSetWorkout[index].weight + 5)}
+          onDecrement={(index) => handleSubSetUpdate(index, 'weight', Math.max(0, workoutState.subSetWorkout[index].weight - 5))}
+          onLockIn={(index) => handleSubSetUpdate(index, 'isLocked', true)}
         />
       )}
 
@@ -305,17 +330,17 @@ const WorkoutView = ({ workoutId }) => {
         ) : (
           <div className="flex flex-col gap-4 md:flex-row md:justify-center">
             <button
-                onClick={handleDiscardWorkout}
-                className="w-full rounded-lg bg-gray-600 px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-gray-500 md:w-auto"
+              onClick={handleDiscardWorkout}
+              className="w-full rounded-lg bg-gray-600 px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-gray-500 md:w-auto"
             >
-                Discard Workout
+              Discard Workout
             </button>
             <button 
-                onClick={handleSaveWorkout} 
-                disabled={isSaving} 
-                className="w-full rounded-lg bg-indigo-600 px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400 md:w-auto"
+              onClick={handleSaveWorkout} 
+              disabled={isSaving} 
+              className="w-full rounded-lg bg-indigo-600 px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400 md:w-auto"
             >
-                {isSaving ? 'Saving...' : 'Finish & Save Workout'}
+              {isSaving ? 'Saving...' : 'Finish & Save Workout'}
             </button>
           </div>
         )}
@@ -324,6 +349,13 @@ const WorkoutView = ({ workoutId }) => {
       <ExerciseSwapModal isOpen={isSwapModalOpen} onClose={() => setIsSwapModalOpen(false)} onExerciseSelect={handleExerciseSelect} exerciseToSwap={exerciseToSwap} />
       <PlateCalculatorModal isOpen={isCalculatorOpen} onClose={() => setIsCalculatorOpen(false)} targetWeight={calculatorWeight} barbellWeight={userSettings?.barbellWeight} />
       <AdjustWeightModal isOpen={isAdjustWeightModalOpen} onClose={() => setIsAdjustWeightModalOpen(false)} onSubmit={handleUpdateWeight} currentWeight={exerciseToAdjust?.weight || 0} />
+
+      {/* Step 4: Render the RestTimer */}
+      <RestTimer
+        isVisible={isTimerVisible}
+        onClose={handleTimerClose}
+        onStart={handleTimerStart}
+      />
     </div>
   );
 };
