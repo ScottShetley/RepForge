@@ -14,13 +14,17 @@ const formatTime = (seconds) => {
 
 const UPPER_BODY_CIRCUIT_TEMPLATE = [
   { id: 'chest-press-machine', name: 'Chest Press Machine' },
+  { id: 'lat-pull-down-machine', name: 'Lat Pull Down Machine' },
+  { id: 'seated-row-machine', name: 'Seated Row Machine' },
   { id: 'shoulder-press-machine', name: 'Shoulder Press Machine' },
   { id: 'bicep-curl-machine', name: 'Bicep Curl Machine' },
+  { id: 'triceps-press-machine', name: 'Tricep Press Machine' },
   { id: 'triceps-extension-machine', name: 'Triceps Extension Machine' },
   { id: 'abdominal-crunch-machine', name: 'Abdominal Crunch Machine' },
 ];
 
 const LOWER_BODY_CIRCUIT_TEMPLATE = [
+  { id: 'leg-press-machine', name: 'Leg Press Machine' },
   { id: 'leg-extension-machine', name: 'Leg Extension Machine' },
   { id: 'seated-leg-curl', name: 'Seated Leg Curl' },
   { id: 'calf-raise-machine', name: 'Calf Raise Machine' },
@@ -72,7 +76,19 @@ const CircuitTracker = () => {
         setExercises(loadedExercises);
 
         const progress = await getCircuitProgress(currentUser.uid);
-        setCircuitProgress(progress);
+        
+        // **FIX 1: DATA MIGRATION HANDSHAKE**
+        // This ensures backward compatibility by checking for `currentWeight`
+        // and migrating it to the correct `lastWeight` field.
+        const migratedProgress = {};
+        for (const key in progress) {
+            migratedProgress[key] = {
+                ...progress[key],
+                lastWeight: progress[key].lastWeight ?? progress[key].currentWeight ?? 0
+            };
+        }
+        setCircuitProgress(migratedProgress);
+
 
         const savedDraft = localStorage.getItem(storageKey);
         if (savedDraft) {
@@ -111,6 +127,21 @@ const CircuitTracker = () => {
       localStorage.setItem(storageKey, JSON.stringify(draftToSave));
     }
   }, [workoutState, elapsedTime, isSessionActive, storageKey]);
+
+  // **FIX 3A: HANDLE START WORKOUT FUNCTION**
+  // Initializes the active session state by copying historical
+  // progress, preventing the weight from resetting to zero.
+  const handleStartWorkout = () => {
+    const initialWorkoutState = {};
+    exercises.forEach(ex => {
+      initialWorkoutState[ex.id] = {
+        exerciseId: ex.id,
+        weight: circuitProgress[ex.id]?.lastWeight ?? 0,
+      };
+    });
+    setWorkoutState(initialWorkoutState);
+    setIsSessionActive(true);
+  };
 
   const handleUpdate = useCallback((exerciseId, data) => {
     setWorkoutState(produce(draft => {
@@ -161,8 +192,9 @@ const CircuitTracker = () => {
       });
 
       if (exState.completedSets === 3) {
+        // **FIX 2B: ALIGN WRITE OPERATION WITH MASTER PLAN**
         newProgressUpdates[exState.exerciseId] = {
-          currentWeight: performedWeight + PROGRESSION_INCREMENT
+          lastWeight: performedWeight + PROGRESSION_INCREMENT
         };
       }
     });
@@ -181,7 +213,6 @@ const CircuitTracker = () => {
     };
 
     try {
-      // --- FIX: This now uses the correct two-argument function call ---
       await saveWorkoutSession(currentUser.uid, finalWorkoutData);
       if (Object.keys(newProgressUpdates).length > 0) {
         await updateCircuitProgress(currentUser.uid, newProgressUpdates);
@@ -190,8 +221,8 @@ const CircuitTracker = () => {
       localStorage.removeItem(storageKey);
       navigate('/');
     } catch (err) {
+      console.error("Error saving workout session:", err);
       setError('Failed to save workout. Please try again.');
-      console.error(err);
       setIsSaving(false);
     }
   };
@@ -205,7 +236,8 @@ const CircuitTracker = () => {
           <CircuitExerciseCard
             key={ex.id}
             exercise={ex}
-            targetWeight={circuitProgress[ex.id]?.currentWeight}
+            // **FIX 2A: ALIGN READ OPERATION WITH MASTER PLAN**
+            targetWeight={circuitProgress[ex.id]?.lastWeight}
             onUpdate={(data) => handleUpdate(ex.id, data)}
             onLockIn={() => handleLockIn(ex.id)}
             disabled={!isSessionActive}
@@ -231,8 +263,9 @@ const CircuitTracker = () => {
                 {formatTime(elapsedTime)}
               </div>
               {!isSessionActive ? (
+                // **FIX 3B: UPDATE ONCLICK HANDLER**
                 <button
-                  onClick={() => setIsSessionActive(true)}
+                  onClick={handleStartWorkout}
                   className="w-full rounded-md bg-green-600 px-6 py-3 font-bold text-white hover:bg-green-500 sm:w-auto"
                 >
                   Start Workout
