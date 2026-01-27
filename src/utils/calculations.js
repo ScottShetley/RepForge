@@ -48,10 +48,26 @@ export const calculatePRs = workouts => {
   for (const workout of workouts) {
     if (workout.exercises) {
       for (const exercise of workout.exercises) {
-        const isSuccessful =
-          exercise.sets &&
-          Array.isArray (exercise.sets) &&
-          exercise.sets.every (set => set.reps >= set.targetReps);
+        let isSuccessful = false;
+
+        // Check for explicit progression status (preferred method)
+        if (exercise.progressionStatus === 'successful') {
+          isSuccessful = true;
+        } else if (exercise.sets && Array.isArray (exercise.sets)) {
+          // Fallback for legacy data or other formats
+          // Only works if sets are objects with targetReps
+          isSuccessful = exercise.sets.every (set => {
+            if (
+              typeof set === 'object' &&
+              set !== null &&
+              typeof set.reps === 'number' &&
+              typeof set.targetReps === 'number'
+            ) {
+              return set.reps >= set.targetReps;
+            }
+            return false;
+          });
+        }
 
         if (coreLifts.includes (exercise.name) && isSuccessful) {
           const currentPR = prs[exercise.name] || 0;
@@ -86,14 +102,23 @@ export const calculateMonthlyStats = workouts => {
     let workoutVolume = 0;
     if (workout.exercises) {
       workout.exercises.forEach (exercise => {
-        if (exercise.sets && Array.isArray (exercise.sets)) {
+        if (
+          exercise.sets &&
+          Array.isArray (exercise.sets) &&
+          typeof exercise.weight === 'number'
+        ) {
           exercise.sets.forEach (set => {
-            if (
-              typeof set.reps === 'number' &&
-              typeof exercise.weight === 'number'
+            let reps = 0;
+            if (typeof set === 'number') {
+              reps = set;
+            } else if (
+              typeof set === 'object' &&
+              set !== null &&
+              typeof set.reps === 'number'
             ) {
-              workoutVolume += set.reps * exercise.weight;
+              reps = set.reps;
             }
+            workoutVolume += reps * exercise.weight;
           });
         }
       });
