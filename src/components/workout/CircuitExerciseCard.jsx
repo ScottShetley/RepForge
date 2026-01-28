@@ -32,42 +32,46 @@ const CircuitExerciseCard = ({ exercise, onUpdate, onLockIn, disabled, isLocked,
       ? targetWeight.currentWeight
       : targetWeight;
 
-    if (!initialData?.weight && weightToSet) {
+    // Only update if we don't already have local data
+    if (!initialData?.weight && weightToSet !== undefined && weightToSet !== null) {
         setState(s => ({...s, weight: weightToSet}));
     }
   }, [targetWeight, initialData?.weight]);
-
 
   const effectiveDisabled = disabled || isLocked;
 
   const handleWeightChange = (e) => {
     const newWeight = e.target.value;
     setState(s => ({...s, weight: newWeight}));
-    onUpdate(exercise.id, 'weight', newWeight);
+    
+    // Send update immediately
+    onUpdate({ weight: newWeight });
   };
 
   const handleSetToggle = (setNumber) => {
     const newCompletedSets = state.completedSets === setNumber ? setNumber - 1 : setNumber;
     setState(s => ({...s, completedSets: newCompletedSets}));
-    onUpdate(exercise.id, 'completedSets', newCompletedSets);
+    onUpdate({ completedSets: newCompletedSets });
   };
 
   const handleLockInClick = () => {
-    onLockIn(exercise.id);
+    // FIX: Pass the payload explicitly when locking in
+    onLockIn(exercise.id, {
+        weight: state.weight,
+        completedSets: state.completedSets
+    });
   };
 
-  // Check if targetWeight is an object and render the correct property.
   const displayTargetWeight = typeof targetWeight === 'object' && targetWeight !== null
     ? targetWeight.currentWeight
     : targetWeight;
-
 
   return (
     <div className={`rounded-lg bg-gray-800 p-4 shadow-md transition-all duration-300 ${isLocked ? 'border-2 border-green-500' : 'border-2 border-transparent'}`}>
       <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex-1">
           <h4 className="text-xl font-bold text-white">{exercise.name}</h4>
-          {displayTargetWeight && <p className="text-xs text-cyan-400 mb-1">Target: {displayTargetWeight} lbs</p>}
+          {displayTargetWeight ? <p className="text-xs text-cyan-400 mb-1">Target: {displayTargetWeight} lbs</p> : null}
         </div>
 
         <div className="flex w-full flex-wrap items-center justify-start gap-4 sm:w-auto sm:justify-end">
@@ -101,7 +105,6 @@ const CircuitExerciseCard = ({ exercise, onUpdate, onLockIn, disabled, isLocked,
           </div>
 
           <div className="flex items-end">
-            {/* --- SURGICAL CHANGE (TEXT) START --- */}
             <button
               onClick={handleLockInClick}
               disabled={effectiveDisabled}
@@ -113,7 +116,6 @@ const CircuitExerciseCard = ({ exercise, onUpdate, onLockIn, disabled, isLocked,
                 <span>{isLocked ? 'Locked In' : 'Lock In'}</span>
               </div>
             </button>
-            {/* --- SURGICAL CHANGE (TEXT) END --- */}
           </div>
         </div>
       </div>
